@@ -101,7 +101,7 @@ func BuildPrompt(log io.Writer, dir string,
 		return nil, fmt.Errorf("maxTokens must be greater than %d", minTokens)
 	}
 
-	targetDiffString := Ellipse(buf.String(), maxTokens/4)
+	targetDiffString := buf.String()
 
 	// Get the HEAD reference
 	head, err := repo.Head()
@@ -198,7 +198,7 @@ func BuildPrompt(log io.Writer, dir string,
 
 	resp = append(resp, openai.ChatCompletionMessage{
 		Role:    openai.ChatMessageRoleUser,
-		Content: targetDiffString,
+		Content: Ellipse(targetDiffString, maxTokens-CountTokens(resp...)),
 	})
 
 	return resp, nil
