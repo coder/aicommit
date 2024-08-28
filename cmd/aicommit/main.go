@@ -183,6 +183,9 @@ func main() {
 		Use:   "aicommit [ref]",
 		Short: "aicommit is a tool for generating commit messages",
 		Handler: func(inv *serpent.Invocation) error {
+			if openAIKey == "" {
+				return errors.New("$OPENAI_API_KEY is not set")
+			}
 			client := openai.NewClient(openAIKey)
 			opts.client = client
 			if len(inv.Args) > 0 {
@@ -196,7 +199,6 @@ func main() {
 				Description: "The OpenAI API key to use.",
 				Env:         "OPENAI_API_KEY",
 				Value:       serpent.StringOf(&openAIKey),
-				Required:    true,
 			},
 			{
 				Name:          "dry-run",
