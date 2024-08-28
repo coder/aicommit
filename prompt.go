@@ -47,7 +47,10 @@ func ellipse(s string, maxTokens int) string {
 	return truncated + "..."
 }
 
-func BuildPrompt(log io.Writer, dir string, maxTokens int) ([]openai.ChatCompletionMessage, error) {
+func BuildPrompt(log io.Writer, dir string,
+	ref string,
+	maxTokens int,
+) ([]openai.ChatCompletionMessage, error) {
 	resp := []openai.ChatCompletionMessage{
 		{
 			Role: openai.ChatMessageRoleSystem,
@@ -64,13 +67,13 @@ func BuildPrompt(log io.Writer, dir string, maxTokens int) ([]openai.ChatComplet
 	}
 
 	// Get the working directory diff
-	targetDiff, err := generateDiff(repo, "")
+	targetDiff, err := generateDiff(repo, ref)
 	if err != nil {
 		return nil, fmt.Errorf("generate working directory diff: %w", err)
 	}
 
 	if targetDiff == "" {
-		return nil, fmt.Errorf("no changes detected in the working directory")
+		return nil, fmt.Errorf("no changes detected for %q", ref)
 	}
 
 	targetDiff = ellipse(targetDiff, 8192)

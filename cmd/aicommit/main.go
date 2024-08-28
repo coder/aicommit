@@ -53,13 +53,31 @@ func hasUnstagedChanges() (bool, error) {
 	return false, nil
 }
 
+func getLastCommitHash() (string, error) {
+	cmd := exec.Command("git", "rev-parse", "HEAD")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
 func run(inv *serpent.Invocation, opts runOptions) error {
 	workdir, err := os.Getwd()
 	if err != nil {
 		return err
 	}
 
-	msgs, err := aicommit.BuildPrompt(inv.Stdout, workdir, 64000)
+	ref := ""
+	if opts.amend {
+		lastCommitHash, err := getLastCommitHash()
+		if err != nil {
+			return err
+		}
+		ref = lastCommitHash
+	}
+
+	msgs, err := aicommit.BuildPrompt(inv.Stdout, workdir, ref, 64000)
 	if err != nil {
 		return err
 	}
