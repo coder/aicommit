@@ -86,6 +86,7 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 		for _, msg := range msgs {
 			debugf("%s: (%v tokens)\n %s\n\n", msg.Role, aicommit.CountTokens(msg), aicommit.Ellipse(msg.Content, 100))
 		}
+		debugf("prompt includes %d commits\n", len(msgs)/2)
 	}
 
 	stream, err := opts.client.CreateChatCompletionStream(ctx, openai.ChatCompletionRequest{
