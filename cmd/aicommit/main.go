@@ -180,10 +180,11 @@ func main() {
 				Required:    true,
 			},
 			{
-				Name:        "dry-run",
-				Flag:        "dry",
-				Description: "Dry run the command.",
-				Value:       serpent.BoolOf(&opts.dryRun),
+				Name:          "dry-run",
+				Flag:          "dry",
+				FlagShorthand: "d",
+				Description:   "Dry run the command.",
+				Value:         serpent.BoolOf(&opts.dryRun),
 			},
 			{
 				Name:          "amend",
