@@ -12,7 +12,7 @@ import (
 	"github.com/tiktoken-go/tokenizer"
 )
 
-func countTokens(msgs ...openai.ChatCompletionMessage) int {
+func CountTokens(msgs ...openai.ChatCompletionMessage) int {
 	enc, err := tokenizer.Get(tokenizer.Cl100kBase)
 	if err != nil {
 		panic("oh oh")
@@ -31,7 +31,8 @@ func countTokens(msgs ...openai.ChatCompletionMessage) int {
 	return tokens
 }
 
-func ellipse(s string, maxTokens int) string {
+// Ellipse returns a string that is truncated to the maximum number of tokens.
+func Ellipse(s string, maxTokens int) string {
 	enc, err := tokenizer.Get(tokenizer.Cl100kBase)
 	if err != nil {
 		panic("failed to get tokenizer")
@@ -85,9 +86,14 @@ func BuildPrompt(log io.Writer, dir string,
 		return nil, fmt.Errorf("no changes detected for %q", ref)
 	}
 
-	targetDiffString := ellipse(buf.String(), 8192)
+	const minTokens = 5000
+	if maxTokens < minTokens {
+		return nil, fmt.Errorf("maxTokens must be greater than %d", minTokens)
+	}
 
-	targetDiffNumTokens := countTokens(
+	targetDiffString := Ellipse(buf.String(), maxTokens/4)
+
+	targetDiffNumTokens := CountTokens(
 		openai.ChatCompletionMessage{
 			Role:    openai.ChatMessageRoleUser,
 			Content: targetDiffString,
@@ -129,7 +135,13 @@ func BuildPrompt(log io.Writer, dir string,
 		if err != nil {
 			return nil, fmt.Errorf("iterate commits: %w", err)
 		}
+		// Ignore if commit equals ref, because we are trying to recalculate
+		// that particular commit's message.
+		if commit.Hash.String() == ref {
+			continue
+		}
 		commits = append(commits, commit)
+
 	}
 
 	// We want to reverse the commits so that the most recent commit is the
@@ -144,18 +156,18 @@ func BuildPrompt(log io.Writer, dir string,
 			return nil, fmt.Errorf("generate diff: %w", err)
 		}
 
-		const maxDiffLength = 8192
+		maxDiffLength := maxTokens / 10
 		msgs := []openai.ChatCompletionMessage{
 			{
 				Role:    openai.ChatMessageRoleUser,
-				Content: ellipse(buf.String(), maxDiffLength),
+				Content: Ellipse(buf.String(), maxDiffLength),
 			},
 			{
 				Role:    openai.ChatMessageRoleAssistant,
 				Content: commit.Message,
 			},
 		}
-		tok := countTokens(msgs...)
+		tok := CountTokens(msgs...)
 
 		if tok+tokensUsed+targetDiffNumTokens > maxTokens {
 			break
@@ -184,7 +196,7 @@ func generateDiff(w io.Writer, dir string, refName string) error {
 		cmd = exec.Command("git", "-C", dir, "diff", "--cached")
 	} else {
 		// Generate diff for the specified reference
-		cmd = exec.Command("git", "-C", dir, "show", refName)
+		cmd = exec.Command("git", "-C", dir, "diff", refName+"^!", "--")
 	}
 
 	cmd.Stdout = w

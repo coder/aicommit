@@ -56,7 +56,7 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 		ref = lastCommitHash
 	}
 
-	msgs, err := aicommit.BuildPrompt(inv.Stdout, workdir, ref, 64000)
+	msgs, err := aicommit.BuildPrompt(inv.Stdout, workdir, ref, 128000)
 	if err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 	ctx := inv.Context()
 	if debugMode {
 		for _, msg := range msgs {
-			debugf("%s: %s\n", msg.Role, msg.Content)
+			debugf("%s: (%v tokens)\n %s\n\n", msg.Role, aicommit.CountTokens(msg), aicommit.Ellipse(msg.Content, 100))
 		}
 	}
 
