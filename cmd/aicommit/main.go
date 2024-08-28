@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -19,10 +18,42 @@ var colorProfile = termenv.ColorProfile()
 
 func errorf(format string, args ...any) {
 	c := pretty.FgColor(colorProfile.Color("#ff0000"))
+	pretty.Fprintf(os.Stderr, c, "err: "+format, args...)
+}
+
+var isDebug = os.Getenv("AICOMMIT_DEBUG") != ""
+
+func debugf(format string, args ...any) {
+	if !isDebug {
+		return
+	}
+	// Gray
+	c := pretty.FgColor(colorProfile.Color("#808080"))
 	pretty.Fprintf(os.Stderr, c, format, args...)
 }
 
-func run(inv *serpent.Invocation, client *openai.Client) error {
+func hasUnstagedChanges() (bool, error) {
+	cmd := exec.Command("git", "status", "--porcelain")
+	output, err := cmd.Output()
+	if err != nil {
+		return false, err
+	}
+
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		if len(line) >= 2 {
+			// Check if the second character is not space
+			// This covers cases like 'MM', ' M', and other unstaged scenarios
+			if line[1] != ' ' {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
+}
+
+func run(inv *serpent.Invocation, opts runOptions) error {
 	workdir, err := os.Getwd()
 	if err != nil {
 		return err
@@ -35,7 +66,7 @@ func run(inv *serpent.Invocation, client *openai.Client) error {
 
 	ctx := inv.Context()
 
-	stream, err := client.CreateChatCompletionStream(ctx, openai.ChatCompletionRequest{
+	stream, err := opts.client.CreateChatCompletionStream(ctx, openai.ChatCompletionRequest{
 		Model:    openai.GPT4o,
 		Stream:   true,
 		Messages: msgs,
@@ -63,8 +94,22 @@ func run(inv *serpent.Invocation, client *openai.Client) error {
 		pretty.Fprintf(inv.Stdout, color, "%s", c)
 	}
 
-	fmt.Fprintln(inv.Stdout, "\n")
+	if opts.dryRun {
+		return nil
+	}
 
+	inv.Stdout.Write([]byte("\n"))
+
+	unstaged, err := hasUnstagedChanges()
+	if err != nil {
+		return err
+	}
+
+	if unstaged {
+		return errors.New("unstaged changes detected, please stage changes before committing")
+	}
+
+	inv.Stdout.Write([]byte("\n"))
 	cmd := exec.Command("git", "commit", "-m", msg.String())
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
@@ -72,14 +117,23 @@ func run(inv *serpent.Invocation, client *openai.Client) error {
 	return cmd.Run()
 }
 
+type runOptions struct {
+	client *openai.Client
+	dryRun bool
+}
+
 func main() {
-	var openAIKey string
+	var (
+		opts      runOptions
+		openAIKey string
+	)
 	cmd := &serpent.Command{
 		Use:   "aicommit",
 		Short: "aicommit is a tool for generating commit messages",
 		Handler: func(inv *serpent.Invocation) error {
 			client := openai.NewClient(openAIKey)
-			return run(inv, client)
+			opts.client = client
+			return run(inv, opts)
 		},
 		Options: []serpent.Option{
 			{
@@ -88,6 +142,12 @@ func main() {
 				Env:         "OPENAI_API_KEY",
 				Value:       serpent.StringOf(&openAIKey),
 				Required:    true,
+			},
+			{
+				Name:        "dry-run",
+				Flag:        "dry",
+				Description: "Dry run the command.",
+				Value:       serpent.BoolOf(&opts.dryRun),
 			},
 		},
 	}
@@ -105,7 +165,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		errorf("error: %s\n", err)
+		errorf("%s\n", err)
 		os.Exit(1)
 	}
 }
