@@ -73,9 +73,8 @@ func BuildPrompt(log io.Writer, dir string,
 			Content: "You are a helpful assistant that generates commit messages for git diffs." +
 				"Generate nothing but the commit message. Do not include any other text." +
 				"Commit messages should have a maximum column width of 100 characters." +
-				"Extended descriptions go on a new line. Follow the style of the existing commit messages." +
-				"Each message is an individual diff for and individual commit. Do not describe changes from previous commits" +
-				"in the new commit message.",
+				"Extended descriptions go on a new line. Mimic the style of the existing commit messages, including" +
+				"use of extended descriptions. Do not repeat the commit message from previous commits.",
 		},
 	}
 
@@ -104,13 +103,6 @@ func BuildPrompt(log io.Writer, dir string,
 
 	targetDiffString := Ellipse(buf.String(), maxTokens/4)
 
-	targetDiffNumTokens := CountTokens(
-		openai.ChatCompletionMessage{
-			Role:    openai.ChatMessageRoleUser,
-			Content: targetDiffString,
-		},
-	)
-
 	// Get the HEAD reference
 	head, err := repo.Head()
 	if err != nil {
@@ -136,9 +128,9 @@ func BuildPrompt(log io.Writer, dir string,
 	}
 	defer commitIter.Close()
 
-	// Collect the last 100 commits
+	// Collect the last N commits
 	var commits []*object.Commit
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 300; i++ {
 		commit, err := commitIter.Next()
 		if err == io.EOF {
 			break
@@ -169,43 +161,40 @@ func BuildPrompt(log io.Writer, dir string,
 		Role: openai.ChatMessageRoleSystem,
 		Content: "Here are recent commit messages:\n" +
 			mustJSON(commitMsgs),
-	})
+	},
+	)
 
-	sysToken := CountTokens(resp...)
+	// for _, commit := range commits {
+	// 	buf.Reset()
+	// 	fmt.Fprintf(&buf, "message: %s\n", commit.Message)
+	// 	if err := generateDiff(&buf, dir, commit.Hash.String()); err != nil {
+	// 		return nil, fmt.Errorf("generate diff: %w", err)
+	// 	}
 
-	var tokensUsed int
-	for _, commit := range commits {
-		buf.Reset()
-		if err := generateDiff(&buf, dir, commit.Hash.String()); err != nil {
-			return nil, fmt.Errorf("generate diff: %w", err)
-		}
+	// 	// The model appears to perform better when diffs are provided as
+	// 	// system messages rather than user/assistant turns.
+	// 	msgs := []openai.ChatCompletionMessage{
+	// 		{
+	// 			Role:    openai.ChatMessageRoleUser,
+	// 			Content: buf.String(),
+	// 		},
+	// 	}
+	// 	tok := CountTokens(msgs...)
 
-		msgs := []openai.ChatCompletionMessage{
-			{
-				Role:    openai.ChatMessageRoleUser,
-				Content: buf.String(),
-			},
-			{
-				Role:    openai.ChatMessageRoleAssistant,
-				Content: commit.Message,
-			},
-		}
-		tok := CountTokens(msgs...)
+	// 	maxDiffLength := maxTokens / 20
+	// 	if tok > maxDiffLength {
+	// 		// Don't spend tokens on diffs that are too long.
+	// 		// It's better for performance to skip these diffs vs. ellipsing them.
+	// 		continue
+	// 	}
 
-		maxDiffLength := maxTokens / 20
-		if tok > maxDiffLength {
-			// Don't spend tokens on diffs that are too long.
-			// It's better for performance to skip these diffs vs. ellipsing them.
-			continue
-		}
+	// 	if tok+tokensUsed+targetDiffNumTokens+sysToken > maxTokens {
+	// 		break
+	// 	}
 
-		if tok+tokensUsed+targetDiffNumTokens+sysToken > maxTokens {
-			break
-		}
-
-		tokensUsed += tok
-		resp = append(resp, msgs...)
-	}
+	// 	tokensUsed += tok
+	// 	resp = append(resp, msgs...)
+	// }
 
 	resp = append(resp, openai.ChatCompletionMessage{
 		Role:    openai.ChatMessageRoleUser,

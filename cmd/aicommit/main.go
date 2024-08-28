@@ -102,8 +102,11 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 	}
 
 	stream, err := opts.client.CreateChatCompletionStream(ctx, openai.ChatCompletionRequest{
-		Model:  openai.GPT4o,
-		Stream: true,
+		Model:       openai.GPT4o,
+		Stream:      true,
+		Temperature: 0,
+		// Seed must not be set for the amend-retry workflow.
+		// Seed:        &seed,
 		StreamOptions: &openai.StreamOptions{
 			IncludeUsage: true,
 		},
