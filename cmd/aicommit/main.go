@@ -105,12 +105,15 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 		return err
 	}
 
-	if unstaged {
+	if unstaged && !opts.amend {
 		return errors.New("unstaged changes detected, please stage changes before committing")
 	}
 
 	inv.Stdout.Write([]byte("\n"))
 	cmd := exec.Command("git", "commit", "-m", msg.String())
+	if opts.amend {
+		cmd.Args = append(cmd.Args, "--amend")
+	}
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	cmd.Stdin = os.Stdin
@@ -120,6 +123,7 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 type runOptions struct {
 	client *openai.Client
 	dryRun bool
+	amend  bool
 }
 
 func main() {
@@ -148,6 +152,13 @@ func main() {
 				Flag:        "dry",
 				Description: "Dry run the command.",
 				Value:       serpent.BoolOf(&opts.dryRun),
+			},
+			{
+				Name:          "amend",
+				Flag:          "amend",
+				FlagShorthand: "a",
+				Description:   "Amend the last commit.",
+				Value:         serpent.BoolOf(&opts.amend),
 			},
 		},
 	}
