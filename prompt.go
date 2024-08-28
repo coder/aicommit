@@ -172,18 +172,16 @@ func BuildPrompt(log io.Writer, dir string,
 	sysToken := CountTokens(resp...)
 
 	var tokensUsed int
-	// Process the commits (you can modify this part based on your needs)
 	for _, commit := range commits {
 		buf.Reset()
 		if err := generateDiff(&buf, dir, commit.Hash.String()); err != nil {
 			return nil, fmt.Errorf("generate diff: %w", err)
 		}
 
-		maxDiffLength := maxTokens / 10
 		msgs := []openai.ChatCompletionMessage{
 			{
 				Role:    openai.ChatMessageRoleUser,
-				Content: Ellipse(buf.String(), maxDiffLength),
+				Content: buf.String(),
 			},
 			{
 				Role:    openai.ChatMessageRoleAssistant,
@@ -191,6 +189,13 @@ func BuildPrompt(log io.Writer, dir string,
 			},
 		}
 		tok := CountTokens(msgs...)
+
+		maxDiffLength := maxTokens / 20
+		if tok > maxDiffLength {
+			// Don't spend tokens on diffs that are too long.
+			// It's better for performance to skip these diffs vs. ellipsing them.
+			continue
+		}
 
 		if tok+tokensUsed+targetDiffNumTokens+sysToken > maxTokens {
 			break
