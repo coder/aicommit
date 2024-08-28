@@ -6,7 +6,6 @@ require (
 	github.com/coder/pretty v0.0.0-20230908205945-e89ba86370e0
 	github.com/coder/serpent v0.8.0
 	github.com/muesli/termenv v0.15.2
-	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
 )
 
 require (
