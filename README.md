@@ -8,7 +8,7 @@ repository conventions is essential for such a tool to be broadly useful.
 ## Install
 
 ```
-go install github.com/coder/aicommit@main
+go install github.com/coder/aicommit/cmd/aicommit@main
 ```
 
 ## Usage
