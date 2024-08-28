@@ -34,6 +34,7 @@ require (
 )
 
 require (
+	al.essio.dev/pkg/shellescape v1.5.0
 	cdr.dev/slog v1.6.2-0.20240126064726-20367d4aede6 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/go-git/go-git/v5 v5.12.0

@@ -73,7 +73,9 @@ func BuildPrompt(log io.Writer, dir string,
 			Content: "You are a helpful assistant that generates commit messages for git diffs." +
 				"Generate nothing but the commit message. Do not include any other text." +
 				"Commit messages should have a maximum column width of 100 characters." +
-				"Extended descriptions go on a new line. Follow the style of the existing commit messages.",
+				"Extended descriptions go on a new line. Follow the style of the existing commit messages." +
+				"Each message is an individual diff for and individual commit. Do not describe changes from previous commits" +
+				"in the new commit message.",
 		},
 	}
 

@@ -6,8 +6,10 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
+	"al.essio.dev/pkg/shellescape"
 	"github.com/coder/aicommit"
 	"github.com/coder/pretty"
 	"github.com/coder/serpent"
@@ -30,7 +32,7 @@ func debugf(format string, args ...any) {
 	}
 	// Gray
 	c := pretty.FgColor(colorProfile.Color("#808080"))
-	pretty.Fprintf(os.Stderr, c, format, args...)
+	pretty.Fprintf(os.Stderr, c, "debug: "+format+"\n", args...)
 }
 
 func getLastCommitHash() (string, error) {
@@ -49,6 +51,16 @@ func resolveRef(ref string) (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(string(output)), nil
+}
+
+func formatShellCommand(cmd *exec.Cmd) string {
+	buf := &strings.Builder{}
+	buf.WriteString(filepath.Base(cmd.Path))
+	for _, arg := range cmd.Args[1:] {
+		buf.WriteString(" ")
+		buf.WriteString(shellescape.Quote(arg))
+	}
+	return buf.String()
 }
 
 func run(inv *serpent.Invocation, opts runOptions) error {
@@ -84,7 +96,7 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 	ctx := inv.Context()
 	if debugMode {
 		for _, msg := range msgs {
-			debugf("%s: (%v tokens)\n %s\n\n", msg.Role, aicommit.CountTokens(msg), aicommit.Ellipse(msg.Content, 100))
+			debugf("%s: (%v tokens)\n %s\n\n", msg.Role, aicommit.CountTokens(msg), msg.Content)
 		}
 		debugf("prompt includes %d commits\n", len(msgs)/2)
 	}
@@ -118,15 +130,23 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 		}
 		// Usage is only sent in the last message.
 		if resp.Usage != nil {
-			debugf("total tokens: %d", resp.Usage.TotalTokens)
+			debugf("\ntotal tokens: %d", resp.Usage.TotalTokens)
 			break
 		}
 		c := resp.Choices[0].Delta.Content
 		msg.WriteString(c)
 		pretty.Fprintf(inv.Stdout, color, "%s", c)
 	}
+	inv.Stdout.Write([]byte("\n"))
+
+	cmd := exec.Command("git", "commit", "-m", msg.String())
+	if opts.amend {
+		cmd.Args = append(cmd.Args, "--amend")
+	}
 
 	if opts.dryRun {
+		fmt.Fprintf(inv.Stdout, "Run the following command to commit:\n")
+		inv.Stdout.Write([]byte("" + formatShellCommand(cmd) + "\n"))
 		return nil
 	}
 	if opts.ref != "" {
@@ -137,10 +157,6 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 	inv.Stdout.Write([]byte("\n"))
 
 	inv.Stdout.Write([]byte("\n"))
-	cmd := exec.Command("git", "commit", "-m", msg.String())
-	if opts.amend {
-		cmd.Args = append(cmd.Args, "--amend")
-	}
 
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
