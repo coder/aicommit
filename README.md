@@ -39,4 +39,4 @@ aicommit HEAD~3
 ```
 
 in which case it will only generate a message for the old commit and not modify
-the repository to prevent havoc and chaos in your git history.
+the repository to prevent havoc in your git history.
