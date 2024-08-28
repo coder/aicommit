@@ -107,6 +107,8 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 		resp, err := stream.Recv()
 		if err != nil {
 			if err == io.EOF {
+				debugf("stream EOF")
+				debugf("total tokens: %d", resp.Usage.TotalTokens)
 				break
 			}
 			return err
