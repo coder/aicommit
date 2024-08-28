@@ -32,27 +32,6 @@ func debugf(format string, args ...any) {
 	pretty.Fprintf(os.Stderr, c, format, args...)
 }
 
-func hasUnstagedChanges() (bool, error) {
-	cmd := exec.Command("git", "status", "--porcelain")
-	output, err := cmd.Output()
-	if err != nil {
-		return false, err
-	}
-
-	lines := strings.Split(string(output), "\n")
-	for _, line := range lines {
-		if len(line) >= 2 {
-			// Check if the second character is not space
-			// This covers cases like 'MM', ' M', and other unstaged scenarios
-			if line[1] != ' ' {
-				return true, nil
-			}
-		}
-	}
-
-	return false, nil
-}
-
 func getLastCommitHash() (string, error) {
 	cmd := exec.Command("git", "rev-parse", "HEAD")
 	output, err := cmd.Output()
@@ -122,15 +101,6 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 	}
 
 	inv.Stdout.Write([]byte("\n"))
-
-	unstaged, err := hasUnstagedChanges()
-	if err != nil {
-		return err
-	}
-
-	if unstaged && !opts.amend {
-		return errors.New("unstaged changes detected, please stage changes before committing")
-	}
 
 	inv.Stdout.Write([]byte("\n"))
 	cmd := exec.Command("git", "commit", "-m", msg.String())
