@@ -2,10 +2,10 @@ package aicommit
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os/exec"
-	"strings"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -53,6 +53,14 @@ func reverseSlice[S ~[]E, E any](s S) {
 	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
 		s[i], s[j] = s[j], s[i]
 	}
+}
+
+func mustJSON(v any) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return string(b)
 }
 
 func BuildPrompt(log io.Writer, dir string,
@@ -158,7 +166,7 @@ func BuildPrompt(log io.Writer, dir string,
 	resp = append(resp, openai.ChatCompletionMessage{
 		Role: openai.ChatMessageRoleSystem,
 		Content: "Here are recent commit messages:\n" +
-			strings.Join(commitMsgs, "\n-------\n"),
+			mustJSON(commitMsgs),
 	})
 
 	sysToken := CountTokens(resp...)
