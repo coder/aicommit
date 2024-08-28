@@ -55,7 +55,7 @@ func reverseSlice[S ~[]E, E any](s S) {
 }
 
 func BuildPrompt(log io.Writer, dir string,
-	ref string,
+	commitHash string,
 	maxTokens int,
 ) ([]openai.ChatCompletionMessage, error) {
 	resp := []openai.ChatCompletionMessage{
@@ -75,15 +75,15 @@ func BuildPrompt(log io.Writer, dir string,
 
 	var buf bytes.Buffer
 	// Get the working directory diff
-	if err := generateDiff(&buf, dir, ref); err != nil {
+	if err := generateDiff(&buf, dir, commitHash); err != nil {
 		return nil, fmt.Errorf("generate working directory diff: %w", err)
 	}
 
 	if buf.Len() == 0 {
-		if ref == "" {
+		if commitHash == "" {
 			return nil, fmt.Errorf("no staged changes, nothing to commit")
 		}
-		return nil, fmt.Errorf("no changes detected for %q", ref)
+		return nil, fmt.Errorf("no changes detected for %q", commitHash)
 	}
 
 	const minTokens = 5000
@@ -137,7 +137,7 @@ func BuildPrompt(log io.Writer, dir string,
 		}
 		// Ignore if commit equals ref, because we are trying to recalculate
 		// that particular commit's message.
-		if commit.Hash.String() == ref {
+		if commit.Hash.String() == commitHash {
 			continue
 		}
 		commits = append(commits, commit)

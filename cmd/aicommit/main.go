@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -41,22 +42,41 @@ func getLastCommitHash() (string, error) {
 	return strings.TrimSpace(string(output)), nil
 }
 
+func resolveRef(ref string) (string, error) {
+	cmd := exec.Command("git", "rev-parse", ref)
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
 func run(inv *serpent.Invocation, opts runOptions) error {
 	workdir, err := os.Getwd()
 	if err != nil {
 		return err
 	}
 
-	ref := ""
+	if opts.ref != "" && opts.amend {
+		return errors.New("cannot use both [ref] and --amend")
+	}
+
+	hash := ""
 	if opts.amend {
 		lastCommitHash, err := getLastCommitHash()
 		if err != nil {
 			return err
 		}
-		ref = lastCommitHash
+		hash = lastCommitHash
+	} else if opts.ref != "" {
+		// Resolve the ref to a hash.
+		hash, err = resolveRef(opts.ref)
+		if err != nil {
+			return fmt.Errorf("resolve ref %q: %w", opts.ref, err)
+		}
 	}
 
-	msgs, err := aicommit.BuildPrompt(inv.Stdout, workdir, ref, 128000)
+	msgs, err := aicommit.BuildPrompt(inv.Stdout, workdir, hash, 128000)
 	if err != nil {
 		return err
 	}
@@ -117,6 +137,7 @@ type runOptions struct {
 	client *openai.Client
 	dryRun bool
 	amend  bool
+	ref    string
 }
 
 func main() {
@@ -125,11 +146,14 @@ func main() {
 		openAIKey string
 	)
 	cmd := &serpent.Command{
-		Use:   "aicommit",
+		Use:   "aicommit [ref]",
 		Short: "aicommit is a tool for generating commit messages",
 		Handler: func(inv *serpent.Invocation) error {
 			client := openai.NewClient(openAIKey)
 			opts.client = client
+			if len(inv.Args) > 0 {
+				opts.ref = inv.Args[0]
+			}
 			return run(inv, opts)
 		},
 		Options: []serpent.Option{
