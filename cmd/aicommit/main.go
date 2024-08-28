@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
+	"strings"
 
 	"github.com/coder/aicommit"
 	"github.com/coder/pretty"
@@ -43,17 +45,31 @@ func run(inv *serpent.Invocation, client *openai.Client) error {
 	}
 	defer stream.Close()
 
+	msg := &strings.Builder{}
+
+	// Sky blue color
+	color := pretty.FgColor(colorProfile.Color("#2FA8FF"))
+
 	for {
 		resp, err := stream.Recv()
 		if err != nil {
 			if err == io.EOF {
-				return nil
+				break
 			}
 			return err
 		}
 		c := resp.Choices[0].Delta.Content
-		fmt.Fprintf(inv.Stdout, "%s", c)
+		msg.WriteString(c)
+		pretty.Fprintf(inv.Stdout, color, "%s", c)
 	}
+
+	fmt.Fprintln(inv.Stdout, "\n")
+
+	cmd := exec.Command("git", "commit", "-m", msg.String())
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	cmd.Stdin = os.Stdin
+	return cmd.Run()
 }
 
 func main() {

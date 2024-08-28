@@ -52,7 +52,9 @@ func BuildPrompt(log io.Writer, dir string, maxTokens int) ([]openai.ChatComplet
 		{
 			Role: openai.ChatMessageRoleSystem,
 			Content: "You are a helpful assistant that generates commit messages for git diffs." +
-				"Generate nothing but the commit message. Do not include any other text.",
+				"Generate nothing but the commit message. Do not include any other text." +
+				"Commit messages should have a maximum column width of 100 characters." +
+				"Extended descriptions go on a new line.",
 		},
 	}
 
@@ -191,33 +193,38 @@ func generateDiff(repo *git.Repository, refName string) (string, error) {
 		return builder.String(), nil
 	}
 
-	// Resolve the reference
+	var hash plumbing.Hash
+	// Try to resolve as a named reference first
 	ref, err := repo.Reference(plumbing.ReferenceName(refName), true)
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve reference %q: %w", refName, err)
+	if err == nil {
+		// If successful, use the reference's hash
+		hash = ref.Hash()
+	} else {
+		// If not a named reference, try as a commit hash
+		hash = plumbing.NewHash(refName)
 	}
 
-	// Get the commit object for the reference
-	commit, err := repo.CommitObject(ref.Hash())
+	// Get the commit object for the hash
+	commit, err := repo.CommitObject(hash)
 	if err != nil {
-		return "", fmt.Errorf("failed to get commit object: %w", err)
+		return "", fmt.Errorf("failed to get commit object for %q: %w", refName, err)
 	}
 
-	// Get the parent commit
-	parent, err := commit.Parent(0)
-	if err != nil {
-		return "", fmt.Errorf("failed to get parent commit: %w", err)
-	}
-
-	// Get the trees for the current commit and its parent
+	// Get the trees for the current commit and its parent (if it exists)
 	currentTree, err := commit.Tree()
 	if err != nil {
 		return "", fmt.Errorf("failed to get current tree: %w", err)
 	}
 
-	parentTree, err := parent.Tree()
-	if err != nil {
-		return "", fmt.Errorf("failed to get parent tree: %w", err)
+	var parentTree *object.Tree
+	if parent, err := commit.Parent(0); err == nil {
+		parentTree, err = parent.Tree()
+		if err != nil {
+			return "", fmt.Errorf("failed to get parent tree for %q: %w", refName, err)
+		}
+	} else {
+		// This is the initial commit, so we'll diff against an empty tree
+		parentTree = &object.Tree{}
 	}
 
 	// Calculate the diff
