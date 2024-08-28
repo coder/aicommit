@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"strings"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -64,7 +65,7 @@ func BuildPrompt(log io.Writer, dir string,
 			Content: "You are a helpful assistant that generates commit messages for git diffs." +
 				"Generate nothing but the commit message. Do not include any other text." +
 				"Commit messages should have a maximum column width of 100 characters." +
-				"Extended descriptions go on a new line.",
+				"Extended descriptions go on a new line. Follow the style of the existing commit messages.",
 		},
 	}
 
@@ -148,6 +149,20 @@ func BuildPrompt(log io.Writer, dir string,
 	// last or "most recent" in the chat.
 	reverseSlice(commits)
 
+	var commitMsgs []string
+	for _, commit := range commits {
+		commitMsgs = append(commitMsgs, Ellipse(commit.Message, 1000))
+	}
+	// We provide the commit messages in case the actual commit diffs are cut
+	// off due to token limits.
+	resp = append(resp, openai.ChatCompletionMessage{
+		Role: openai.ChatMessageRoleSystem,
+		Content: "Here are recent commit messages:\n" +
+			strings.Join(commitMsgs, "\n-------\n"),
+	})
+
+	sysToken := CountTokens(resp...)
+
 	var tokensUsed int
 	// Process the commits (you can modify this part based on your needs)
 	for _, commit := range commits {
@@ -169,7 +184,7 @@ func BuildPrompt(log io.Writer, dir string,
 		}
 		tok := CountTokens(msgs...)
 
-		if tok+tokensUsed+targetDiffNumTokens > maxTokens {
+		if tok+tokensUsed+targetDiffNumTokens+sysToken > maxTokens {
 			break
 		}
 
