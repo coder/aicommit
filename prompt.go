@@ -1,12 +1,12 @@
 package aicommit
 
 import (
+	"bytes"
 	"fmt"
 	"io"
-	"strings"
+	"os/exec"
 
 	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/sashabaranov/go-openai"
 	"github.com/tiktoken-go/tokenizer"
@@ -47,6 +47,12 @@ func ellipse(s string, maxTokens int) string {
 	return truncated + "..."
 }
 
+func reverseSlice[S ~[]E, E any](s S) {
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
+	}
+}
+
 func BuildPrompt(log io.Writer, dir string,
 	ref string,
 	maxTokens int,
@@ -66,22 +72,25 @@ func BuildPrompt(log io.Writer, dir string,
 		return nil, fmt.Errorf("open repo: %w", err)
 	}
 
+	var buf bytes.Buffer
 	// Get the working directory diff
-	targetDiff, err := generateDiff(repo, ref)
-	if err != nil {
+	if err := generateDiff(&buf, dir, ref); err != nil {
 		return nil, fmt.Errorf("generate working directory diff: %w", err)
 	}
 
-	if targetDiff == "" {
+	if buf.Len() == 0 {
+		if ref == "" {
+			return nil, fmt.Errorf("no staged changes, nothing to commit")
+		}
 		return nil, fmt.Errorf("no changes detected for %q", ref)
 	}
 
-	targetDiff = ellipse(targetDiff, 8192)
+	targetDiffString := ellipse(buf.String(), 8192)
 
 	targetDiffNumTokens := countTokens(
 		openai.ChatCompletionMessage{
 			Role:    openai.ChatMessageRoleUser,
-			Content: targetDiff,
+			Content: targetDiffString,
 		},
 	)
 
@@ -92,7 +101,7 @@ func BuildPrompt(log io.Writer, dir string,
 		fmt.Fprintln(log, "no commits yet")
 		resp = append(resp, openai.ChatCompletionMessage{
 			Role:    openai.ChatMessageRoleUser,
-			Content: targetDiff,
+			Content: targetDiffString,
 		})
 		return resp, nil
 	}
@@ -123,11 +132,15 @@ func BuildPrompt(log io.Writer, dir string,
 		commits = append(commits, commit)
 	}
 
+	// We want to reverse the commits so that the most recent commit is the
+	// last or "most recent" in the chat.
+	reverseSlice(commits)
+
 	var tokensUsed int
 	// Process the commits (you can modify this part based on your needs)
 	for _, commit := range commits {
-		diff, err := generateDiff(repo, commit.Hash.String())
-		if err != nil {
+		buf.Reset()
+		if err := generateDiff(&buf, dir, commit.Hash.String()); err != nil {
 			return nil, fmt.Errorf("generate diff: %w", err)
 		}
 
@@ -135,7 +148,7 @@ func BuildPrompt(log io.Writer, dir string,
 		msgs := []openai.ChatCompletionMessage{
 			{
 				Role:    openai.ChatMessageRoleUser,
-				Content: ellipse(diff, maxDiffLength),
+				Content: ellipse(buf.String(), maxDiffLength),
 			},
 			{
 				Role:    openai.ChatMessageRoleAssistant,
@@ -154,97 +167,28 @@ func BuildPrompt(log io.Writer, dir string,
 
 	resp = append(resp, openai.ChatCompletionMessage{
 		Role:    openai.ChatMessageRoleUser,
-		Content: targetDiff,
+		Content: targetDiffString,
 	})
 
 	return resp, nil
 }
 
-func generateDiff(repo *git.Repository, refName string) (string, error) {
+// generateDiff uses the git CLI to generate a diff for the given reference.
+// If refName is empty, it will generate a diff of staged changes for the working directory.
+func generateDiff(w io.Writer, dir string, refName string) error {
+	// We don't use go-git as reaching parity with git is a pain.
+	var cmd *exec.Cmd
+
 	if refName == "" {
-		// Handle working directory changes
-		worktree, err := repo.Worktree()
-		if err != nil {
-			return "", fmt.Errorf("failed to get worktree: %w", err)
-		}
-
-		status, err := worktree.Status()
-		if err != nil {
-			return "", fmt.Errorf("failed to get worktree status: %w", err)
-		}
-
-		var builder strings.Builder
-		for path, fileStatus := range status {
-			if fileStatus.Staging != git.Unmodified || fileStatus.Worktree != git.Unmodified {
-				file, err := worktree.Filesystem.Open(path)
-				if err != nil {
-					return "", fmt.Errorf("failed to open file %s: %w", path, err)
-				}
-				defer file.Close()
-
-				content, err := io.ReadAll(file)
-				if err != nil {
-					return "", fmt.Errorf("failed to read file %s: %w", path, err)
-				}
-
-				builder.WriteString(fmt.Sprintf("diff --git a/%s b/%s\n", path, path))
-				builder.WriteString(fmt.Sprintf("--- a/%s\n", path))
-				builder.WriteString(fmt.Sprintf("+++ b/%s\n", path))
-				builder.WriteString(string(content))
-			}
-		}
-		return builder.String(), nil
-	}
-
-	var hash plumbing.Hash
-	// Try to resolve as a named reference first
-	ref, err := repo.Reference(plumbing.ReferenceName(refName), true)
-	if err == nil {
-		// If successful, use the reference's hash
-		hash = ref.Hash()
+		// Generate diff for staged changes in the working directory
+		cmd = exec.Command("git", "-C", dir, "diff", "--cached")
 	} else {
-		// If not a named reference, try as a commit hash
-		hash = plumbing.NewHash(refName)
+		// Generate diff for the specified reference
+		cmd = exec.Command("git", "-C", dir, "show", refName)
 	}
 
-	// Get the commit object for the hash
-	commit, err := repo.CommitObject(hash)
-	if err != nil {
-		return "", fmt.Errorf("failed to get commit object for %q: %w", refName, err)
-	}
+	cmd.Stdout = w
+	cmd.Stderr = io.Discard
 
-	// Get the trees for the current commit and its parent (if it exists)
-	currentTree, err := commit.Tree()
-	if err != nil {
-		return "", fmt.Errorf("failed to get current tree: %w", err)
-	}
-
-	var parentTree *object.Tree
-	if parent, err := commit.Parent(0); err == nil {
-		parentTree, err = parent.Tree()
-		if err != nil {
-			return "", fmt.Errorf("failed to get parent tree for %q: %w", refName, err)
-		}
-	} else {
-		// This is the initial commit, so we'll diff against an empty tree
-		parentTree = &object.Tree{}
-	}
-
-	// Calculate the diff
-	diff, err := object.DiffTree(parentTree, currentTree)
-	if err != nil {
-		return "", fmt.Errorf("failed to calculate diff: %w", err)
-	}
-
-	// Build the canonical diff string
-	var builder strings.Builder
-	for _, change := range diff {
-		patch, err := change.Patch()
-		if err != nil {
-			return "", fmt.Errorf("failed to get patch: %w", err)
-		}
-		builder.WriteString(patch.String())
-	}
-
-	return builder.String(), nil
+	return cmd.Run()
 }
