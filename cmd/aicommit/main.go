@@ -128,6 +128,10 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 	if opts.dryRun {
 		return nil
 	}
+	if opts.ref != "" {
+		debugf("targetting old ref, not committing")
+		return nil
+	}
 
 	inv.Stdout.Write([]byte("\n"))
 
@@ -136,6 +140,7 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 	if opts.amend {
 		cmd.Args = append(cmd.Args, "--amend")
 	}
+
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	cmd.Stdin = os.Stdin

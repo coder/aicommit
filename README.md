@@ -32,3 +32,11 @@ You can dry-run with `-d`/`--dry` to see the ideal message without committing.
 aicommit -d
 ```
 
+Or, you can point to a specific ref:
+
+```
+aicommit HEAD~3
+```
+
+in which case it will only generate a message for the old commit and not modify
+the repository to prevent havoc and chaos in your git history.
