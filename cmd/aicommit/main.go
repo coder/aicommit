@@ -21,10 +21,10 @@ func errorf(format string, args ...any) {
 	pretty.Fprintf(os.Stderr, c, "err: "+format, args...)
 }
 
-var isDebug = os.Getenv("AICOMMIT_DEBUG") != ""
+var debugMode = os.Getenv("AICOMMIT_DEBUG") != ""
 
 func debugf(format string, args ...any) {
-	if !isDebug {
+	if !debugMode {
 		return
 	}
 	// Gray
@@ -83,6 +83,11 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 	}
 
 	ctx := inv.Context()
+	if debugMode {
+		for _, msg := range msgs {
+			debugf("%s: %s\n", msg.Role, msg.Content)
+		}
+	}
 
 	stream, err := opts.client.CreateChatCompletionStream(ctx, openai.ChatCompletionRequest{
 		Model:    openai.GPT4o,
