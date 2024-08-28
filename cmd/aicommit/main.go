@@ -89,8 +89,11 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 	}
 
 	stream, err := opts.client.CreateChatCompletionStream(ctx, openai.ChatCompletionRequest{
-		Model:    openai.GPT4o,
-		Stream:   true,
+		Model:  openai.GPT4o,
+		Stream: true,
+		StreamOptions: &openai.StreamOptions{
+			IncludeUsage: true,
+		},
 		Messages: msgs,
 	})
 	if err != nil {
@@ -108,10 +111,14 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 		if err != nil {
 			if err == io.EOF {
 				debugf("stream EOF")
-				debugf("total tokens: %d", resp.Usage.TotalTokens)
 				break
 			}
 			return err
+		}
+		// Usage is only sent in the last message.
+		if resp.Usage != nil {
+			debugf("total tokens: %d", resp.Usage.TotalTokens)
+			break
 		}
 		c := resp.Choices[0].Delta.Content
 		msg.WriteString(c)
