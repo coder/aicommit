@@ -100,7 +100,7 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 		}
 	}
 
-	msgs, err := aicommit.BuildPrompt(inv.Stdout, workdir, hash, 128000)
+	msgs, err := aicommit.BuildPrompt(inv.Stdout, workdir, hash, opts.amend, 128000)
 	if err != nil {
 		return err
 	}

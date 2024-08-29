@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -101,8 +102,11 @@ func findStyleGuide(dir string) (string, error) {
 	return string(styleGuide), nil
 }
 
-func BuildPrompt(log io.Writer, dir string,
+func BuildPrompt(
+	log io.Writer,
+	dir string,
 	commitHash string,
+	amend bool,
 	maxTokens int,
 ) ([]openai.ChatCompletionMessage, error) {
 	resp := []openai.ChatCompletionMessage{
@@ -123,7 +127,7 @@ func BuildPrompt(log io.Writer, dir string,
 
 	var buf bytes.Buffer
 	// Get the working directory diff
-	if err := generateDiff(&buf, dir, commitHash); err != nil {
+	if err := generateDiff(&buf, dir, commitHash, amend); err != nil {
 		return nil, fmt.Errorf("generate working directory diff: %w", err)
 	}
 
@@ -215,38 +219,6 @@ func BuildPrompt(log io.Writer, dir string,
 		})
 	}
 
-	// for _, commit := range commits {
-	// 	buf.Reset()
-	// 	fmt.Fprintf(&buf, "message: %s\n", commit.Message)
-	// 	if err := generateDiff(&buf, dir, commit.Hash.String()); err != nil {
-	// 		return nil, fmt.Errorf("generate diff: %w", err)
-	// 	}
-
-	// 	// The model appears to perform better when diffs are provided as
-	// 	// system messages rather than user/assistant turns.
-	// 	msgs := []openai.ChatCompletionMessage{
-	// 		{
-	// 			Role:    openai.ChatMessageRoleUser,
-	// 			Content: buf.String(),
-	// 		},
-	// 	}
-	// 	tok := CountTokens(msgs...)
-
-	// 	maxDiffLength := maxTokens / 20
-	// 	if tok > maxDiffLength {
-	// 		// Don't spend tokens on diffs that are too long.
-	// 		// It's better for performance to skip these diffs vs. ellipsing them.
-	// 		continue
-	// 	}
-
-	// 	if tok+tokensUsed+targetDiffNumTokens+sysToken > maxTokens {
-	// 		break
-	// 	}
-
-	// 	tokensUsed += tok
-	// 	resp = append(resp, msgs...)
-	// }
-
 	resp = append(resp, openai.ChatCompletionMessage{
 		Role:    openai.ChatMessageRoleUser,
 		Content: Ellipse(targetDiffString, maxTokens-CountTokens(resp...)),
@@ -257,20 +229,36 @@ func BuildPrompt(log io.Writer, dir string,
 
 // generateDiff uses the git CLI to generate a diff for the given reference.
 // If refName is empty, it will generate a diff of staged changes for the working directory.
-func generateDiff(w io.Writer, dir string, refName string) error {
-	// We don't use go-git as reaching parity with git is a pain.
-	var cmd *exec.Cmd
+func generateDiff(w io.Writer, dir string, refName string, amend bool) error {
+	// Use the git CLI instead of go-git for more accurate and complete diff generation
+	cmd := exec.Command("git", "-C", dir, "diff")
 
 	if refName == "" {
+		// Case 1: No specific commit reference provided
 		// Generate diff for staged changes in the working directory
-		cmd = exec.Command("git", "-C", dir, "diff", "--cached")
+		cmd.Args = append(cmd.Args, "--cached")
 	} else {
-		// Generate diff for the specified reference
-		cmd = exec.Command("git", "-C", dir, "diff", refName+"^!", "--")
+		// Case 2: A specific commit reference is provided
+		if amend {
+			// Case 2a: Amending the specified commit
+			// Show diff of the commit being amended plus any staged changes
+			cmd.Args = append(cmd.Args, "--cached", refName+"^")
+		} else {
+			// Case 2b: Show changes introduced by the specific commit
+			cmd.Args = append(cmd.Args, refName+"^", refName)
+		}
 	}
 
+	var errBuf bytes.Buffer
 	cmd.Stdout = w
-	cmd.Stderr = io.Discard
+	cmd.Stderr = &errBuf
 
-	return cmd.Run()
+	// Run the git command and return any execution errors
+	err := cmd.Run()
+	if err != nil {
+		return fmt.Errorf("Running %s %s: %w\n%s",
+			cmd.Args[0], strings.Join(cmd.Args[1:], " "), err, errBuf.String())
+	}
+
+	return nil
 }
