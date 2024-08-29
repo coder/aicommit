@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -63,6 +64,17 @@ func formatShellCommand(cmd *exec.Cmd) string {
 	return buf.String()
 }
 
+func cleanAIMessage(msg string) string {
+	// As reported by Ben, sometimes GPT returns the message
+	// wrapped in a code block.
+	if strings.HasPrefix(msg, "```") {
+		msg = strings.TrimSuffix(msg, "```")
+		msg = strings.TrimPrefix(msg, "```")
+	}
+	msg = strings.TrimSpace(msg)
+	return msg
+}
+
 func run(inv *serpent.Invocation, opts runOptions) error {
 	workdir, err := os.Getwd()
 	if err != nil {
@@ -117,7 +129,7 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 	}
 	defer stream.Close()
 
-	msg := &strings.Builder{}
+	msg := &bytes.Buffer{}
 
 	// Sky blue color
 	color := pretty.FgColor(colorProfile.Color("#2FA8FF"))
@@ -141,6 +153,8 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 		pretty.Fprintf(inv.Stdout, color, "%s", c)
 	}
 	inv.Stdout.Write([]byte("\n"))
+
+	msg = bytes.NewBufferString(cleanAIMessage(msg.String()))
 
 	cmd := exec.Command("git", "commit", "-m", msg.String())
 	if opts.amend {
