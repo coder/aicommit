@@ -2,7 +2,7 @@
 
 `aicommit` is a small command line tool for generating commit messages. There
 are many of these already out there, some even with the same name. But none
-(to my knowledge) strive to follow the repository's existing style, making
+(to my knowledge) follow the repository's existing style, making
 them useless when working in an established codebase.
 
 ## Install
@@ -16,26 +16,26 @@ go install github.com/coder/aicommit/cmd/aicommit@main
 You can run `aicommit` with no arguments to generate a commit message for the
 staged changes.
 
-```
+```bash
 export OPENAI_API_KEY="..."
 aicommit
 ```
 
 You can "retry" a commit message by using the `-a`/`--amend` flag.
 
-```
+```bash
 aicommit -a
 ```
 
 You can dry-run with `-d`/`--dry` to see the ideal message without committing.
 
-```
+```bash
 aicommit -d
 ```
 
 Or, you can point to a specific ref:
 
-```
+```bash
 aicommit HEAD~3
 ```
 
