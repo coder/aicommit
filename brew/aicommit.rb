@@ -9,6 +9,7 @@ class Aicommit < Formula
     depends_on "make" => :build
 
     def install
+        system "git", "pull"
         system "make", "build"
         bin.install "bin/aicommit"
     end
