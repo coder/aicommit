@@ -145,7 +145,7 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 		}
 		// Usage is only sent in the last message.
 		if resp.Usage != nil {
-			debugf("\ntotal tokens: %d", resp.Usage.TotalTokens)
+			debugf("total tokens: %d", resp.Usage.TotalTokens)
 			break
 		}
 		c := resp.Choices[0].Delta.Content
@@ -170,8 +170,6 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 		debugf("targetting old ref, not committing")
 		return nil
 	}
-
-	inv.Stdout.Write([]byte("\n"))
 
 	inv.Stdout.Write([]byte("\n"))
 
