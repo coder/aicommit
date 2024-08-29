@@ -70,9 +70,9 @@ func BuildPrompt(log io.Writer, dir string,
 	resp := []openai.ChatCompletionMessage{
 		{
 			Role: openai.ChatMessageRoleSystem,
-			Content: "You are a helpful assistant that generates commit messages for git diffs." +
+			Content: "You are a tool that generates commit messages for git diffs." +
 				"Generate nothing but the commit message. Do not include any other text." +
-				"Commit messages should have a maximum column width of 100 characters." +
+				"The first line of the commit message must be less than 72 characters." +
 				"Extended descriptions go on a new line. Mimic the style of the existing commit messages, including" +
 				"use of extended descriptions. Do not repeat the commit message from previous commits.",
 		},
