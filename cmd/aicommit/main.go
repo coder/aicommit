@@ -227,6 +227,9 @@ func main() {
 				Value:         serpent.BoolOf(&opts.amend),
 			},
 		},
+		Children: []*serpent.Command{
+			versionCmd(),
+		},
 	}
 
 	err := cmd.Invoke().WithOS().Run()
