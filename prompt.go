@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -63,6 +65,42 @@ func mustJSON(v any) string {
 	return string(b)
 }
 
+func findGitRoot(dir string) (string, error) {
+	dir = filepath.Clean(dir)
+	for {
+		_, err := os.Stat(filepath.Join(dir, ".git"))
+		if err == nil {
+			return dir, nil
+		}
+		if os.IsNotExist(err) {
+			if dir == "/" {
+				return "", fmt.Errorf("not a git repository")
+			}
+			dir = filepath.Dir(dir)
+		} else {
+			return "", fmt.Errorf("failed to stat .git: %w", err)
+		}
+	}
+}
+
+// findStyleGuide searches for "COMMITS.md" in the repository root of dir
+// and returns its contents.
+func findStyleGuide(dir string) (string, error) {
+	root, err := findGitRoot(dir)
+	if err != nil {
+		return "", fmt.Errorf("find git root: %w", err)
+	}
+
+	styleGuide, err := os.ReadFile(filepath.Join(root, "COMMITS.md"))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
+		}
+		return "", fmt.Errorf("read style guide: %w", err)
+	}
+	return string(styleGuide), nil
+}
+
 func BuildPrompt(log io.Writer, dir string,
 	commitHash string,
 	maxTokens int,
@@ -70,12 +108,24 @@ func BuildPrompt(log io.Writer, dir string,
 	resp := []openai.ChatCompletionMessage{
 		{
 			Role: openai.ChatMessageRoleSystem,
-			Content: "You are a tool that generates commit messages for git diffs." +
+			Content: "You are a tool called `aicommit` that generates commit messages for git diffs." +
 				"Generate nothing but the commit message. Do not include any other text." +
 				"The first line of the commit message must be less than 72 characters." +
 				"Extended descriptions go on a new line. Mimic the style of the existing commit messages, including" +
 				"use of extended descriptions. Do not repeat the commit message from previous commits.",
 		},
+	}
+
+	styleGuide, err := findStyleGuide(dir)
+	if err != nil {
+		return nil, fmt.Errorf("find style guide: %w", err)
+	}
+	if styleGuide != "" {
+		resp = append(resp, openai.ChatCompletionMessage{
+			Role: openai.ChatMessageRoleSystem,
+			Content: "This repository has a style guide. Follow it even when " +
+				"it diverges from the norm:\n" + styleGuide,
+		})
 	}
 
 	repo, err := git.PlainOpen(dir)

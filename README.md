@@ -40,3 +40,9 @@ aicommit HEAD~3
 
 in which case it will only generate a message for the old commit and not modify
 the repository to prevent havoc in your git history.
+
+## Style Guide
+
+`aicommit` will read the `COMMITS.md` file in the root of the repository to
+determine the style guide. It is optional, but if it exists, it will be followed
+even if the rules there diverge from the norm.
