@@ -104,6 +104,12 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 	if err != nil {
 		return err
 	}
+	if opts.context != "" {
+		msgs = append(msgs, openai.ChatCompletionMessage{
+			Role:    openai.ChatMessageRoleUser,
+			Content: "Consider this context when generating the commit message: " + opts.context,
+		})
+	}
 
 	ctx := inv.Context()
 	if debugMode {
@@ -180,10 +186,11 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 }
 
 type runOptions struct {
-	client *openai.Client
-	dryRun bool
-	amend  bool
-	ref    string
+	client  *openai.Client
+	dryRun  bool
+	amend   bool
+	ref     string
+	context string
 }
 
 func main() {
@@ -225,6 +232,13 @@ func main() {
 				FlagShorthand: "a",
 				Description:   "Amend the last commit.",
 				Value:         serpent.BoolOf(&opts.amend),
+			},
+			{
+				Name:          "context",
+				Description:   "Extra context beyond the diff to consider when generating the commit message.",
+				Flag:          "context",
+				FlagShorthand: "c",
+				Value:         serpent.StringOf(&opts.context),
 			},
 		},
 		Children: []*serpent.Command{
