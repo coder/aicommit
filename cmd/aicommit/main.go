@@ -107,7 +107,7 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 	if opts.context != "" {
 		msgs = append(msgs, openai.ChatCompletionMessage{
 			Role:    openai.ChatMessageRoleUser,
-			Content: "Consider this context when generating the commit message: " + opts.context,
+			Content: "Integrate this context into the commit message: " + opts.context,
 		})
 	}
 

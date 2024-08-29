@@ -49,8 +49,11 @@ Or, you can point to a specific ref:
 aicommit HEAD~3
 ```
 
-in which case it will only generate a message for the old commit and not modify
-the repository to prevent havoc in your git history.
+You can also provide context to the AI to help it generate a better commit message:
+
+```bash
+aicommit -c "closes #123"
+```
 
 ## Style Guide
 
