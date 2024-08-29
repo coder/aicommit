@@ -17,6 +17,7 @@ You can run `aicommit` with no arguments to generate a commit message for the
 staged changes.
 
 ```
+export OPENAI_API_KEY="..."
 aicommit
 ```
 
