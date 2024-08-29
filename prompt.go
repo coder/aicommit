@@ -116,18 +116,6 @@ func BuildPrompt(log io.Writer, dir string,
 		},
 	}
 
-	styleGuide, err := findStyleGuide(dir)
-	if err != nil {
-		return nil, fmt.Errorf("find style guide: %w", err)
-	}
-	if styleGuide != "" {
-		resp = append(resp, openai.ChatCompletionMessage{
-			Role: openai.ChatMessageRoleSystem,
-			Content: "This repository has a style guide. Follow it even when " +
-				"it diverges from the norm:\n" + styleGuide,
-		})
-	}
-
 	repo, err := git.PlainOpen(dir)
 	if err != nil {
 		return nil, fmt.Errorf("open repo: %w", err)
@@ -213,6 +201,19 @@ func BuildPrompt(log io.Writer, dir string,
 			mustJSON(commitMsgs),
 	},
 	)
+
+	// Add style guide after commit messages so it takes priority.
+	styleGuide, err := findStyleGuide(dir)
+	if err != nil {
+		return nil, fmt.Errorf("find style guide: %w", err)
+	}
+	if styleGuide != "" {
+		resp = append(resp, openai.ChatCompletionMessage{
+			Role: openai.ChatMessageRoleSystem,
+			Content: "This repository has a style guide. Follow it even when " +
+				"it diverges from the norm.\n" + styleGuide,
+		})
+	}
 
 	// for _, commit := range commits {
 	// 	buf.Reset()
