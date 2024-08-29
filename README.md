@@ -2,8 +2,8 @@
 
 `aicommit` is a small command line tool for generating commit messages. There
 are many of these already out there, some even with the same name. But none
-(to my knowledge) use the existing style of the repository. Following
-repository conventions is essential for such a tool to be broadly useful.
+(to my knowledge) strive to follow the repository's existing style, making
+them useless when working in an established codebase.
 
 ## Install
 
