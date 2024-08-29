@@ -5,6 +5,16 @@ are many of these already out there, some even with the same name. But none
 (to my knowledge) follow the repository's existing style, making
 them useless when working in an established codebase.
 
+Big, meaty commits should be written by humans so they contain the 
+intention and business context behind the change. But, when you find yourself
+spraying commits like this:
+
+![sreya-log](./img/sreya-log.png)
+
+consider `aicommit`.
+
+
+
 ## Install
 
 ```
