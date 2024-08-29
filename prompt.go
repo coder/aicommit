@@ -159,7 +159,7 @@ func BuildPrompt(log io.Writer, dir string,
 	// off due to token limits.
 	resp = append(resp, openai.ChatCompletionMessage{
 		Role: openai.ChatMessageRoleSystem,
-		Content: "Here are recent commit messages:\n" +
+		Content: "Here are recent commit messages in the same repository:\n" +
 			mustJSON(commitMsgs),
 	},
 	)
