@@ -5,7 +5,7 @@ are many of these already out there, some even with the same name. But none
 (to my knowledge) follow the repository's existing style, making
 them useless when working in an established codebase.
 
-Big, meaty commits should be written by humans so they contain the 
+Big, meaty commits should be described by humans so they contain the 
 intention and business context behind the change. But, when you find yourself
 spraying commits like this:
 
@@ -53,6 +53,10 @@ You can also provide context to the AI to help it generate a better commit messa
 
 ```bash
 aicommit -c "closes #123"
+
+aicommit -c "improved HTTP performance by 50%"
+
+aicommit -c "bad code but need for urgent customer fix"
 ```
 
 ## Style Guide
