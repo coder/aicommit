@@ -5,14 +5,14 @@ are many of these already out there, some even with the same name. But none
 (to my knowledge) follow the repository's existing style, making
 them useless when working in an established codebase.
 
-Big, meaty commits should be described by humans so they contain the 
-intention and business context behind the change. But, when you find yourself
-spraying commits like this:
+A good commit message is more than a summary of the code changes. It contains
+the intention, context, and external references that help others understand the
+change. Thus, `aicommit` has a `-c`/`--context` flag for quickly adding
+this detail.
+
+`aicommit` is inspired by our good friend [@sreya](https://github.com/sreya):
 
 ![sreya-log](./img/sreya-log.png)
-
-consider `aicommit`.
-
 
 
 ## Install

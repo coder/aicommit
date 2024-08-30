@@ -104,10 +104,10 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 	if err != nil {
 		return err
 	}
-	if opts.context != "" {
+	if len(opts.context) > 0 {
 		msgs = append(msgs, openai.ChatCompletionMessage{
 			Role:    openai.ChatMessageRoleSystem,
-			Content: "Integrate this context into the commit message: " + opts.context,
+			Content: "Integrate this context into the commit message: " + strings.Join(opts.context, "\n\n"),
 		})
 	}
 
@@ -190,7 +190,7 @@ type runOptions struct {
 	dryRun  bool
 	amend   bool
 	ref     string
-	context string
+	context []string
 }
 
 func main() {
@@ -238,7 +238,7 @@ func main() {
 				Description:   "Extra context beyond the diff to consider when generating the commit message.",
 				Flag:          "context",
 				FlagShorthand: "c",
-				Value:         serpent.StringOf(&opts.context),
+				Value:         serpent.StringArrayOf(&opts.context),
 			},
 		},
 		Children: []*serpent.Command{
