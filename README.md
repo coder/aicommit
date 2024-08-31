@@ -21,7 +21,7 @@ this detail.
 go install github.com/coder/aicommit/cmd/aicommit@main
 ```
 
-Or, download a binary from the latest [GitHub Release](https://github.com/coder/aicommit/releases).
+Or, download a binary from [the latest release](https://github.com/coder/aicommit/releases).
 
 ## Usage
 
