@@ -21,6 +21,8 @@ this detail.
 go install github.com/coder/aicommit/cmd/aicommit@main
 ```
 
+Or, download a binary from the latest [GitHub Release](https://github.com/coder/aicommit/releases).
+
 ## Usage
 
 You can run `aicommit` with no arguments to generate a commit message for the
