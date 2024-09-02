@@ -84,9 +84,9 @@ func findGitRoot(dir string) (string, error) {
 	}
 }
 
-// findStyleGuide searches for "COMMITS.md" in the repository root of dir
+// findRepoStyleGuide searches for "COMMITS.md" in the repository root of dir
 // and returns its contents.
-func findStyleGuide(dir string) (string, error) {
+func findRepoStyleGuide(dir string) (string, error) {
 	root, err := findGitRoot(dir)
 	if err != nil {
 		return "", fmt.Errorf("find git root: %w", err)
@@ -217,7 +217,7 @@ func BuildPrompt(
 	)
 
 	// Add style guide after commit messages so it takes priority.
-	styleGuide, err := findStyleGuide(dir)
+	styleGuide, err := findRepoStyleGuide(dir)
 	if err != nil {
 		return nil, fmt.Errorf("find style guide: %w", err)
 	}
