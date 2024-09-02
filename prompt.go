@@ -132,7 +132,7 @@ func BuildPrompt(
 
 	repo, err := git.PlainOpen(dir)
 	if err != nil {
-		return nil, fmt.Errorf("open repo: %w", err)
+		return nil, fmt.Errorf("open repo %q: %w", dir, err)
 	}
 
 	var buf bytes.Buffer
