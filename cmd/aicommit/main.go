@@ -204,14 +204,38 @@ func main() {
 	var (
 		opts      runOptions
 		openAIKey string
+		doSaveKey bool
 	)
 	cmd := &serpent.Command{
 		Use:   "aicommit [ref]",
 		Short: "aicommit is a tool for generating commit messages",
 		Handler: func(inv *serpent.Invocation) error {
+			savedKey, err := loadKey()
+			if err != nil && !os.IsNotExist(err) {
+				return err
+			}
+			if savedKey != "" && openAIKey == "" {
+				openAIKey = savedKey
+			}
 			if openAIKey == "" {
 				return errors.New("$OPENAI_API_KEY is not set")
 			}
+
+			if doSaveKey {
+				err := saveKey(openAIKey)
+				if err != nil {
+					return err
+				}
+
+				kp, err := keyPath()
+				if err != nil {
+					return err
+				}
+
+				fmt.Fprintf(inv.Stdout, "Saved OpenAI API key to %s\n", kp)
+				return nil
+			}
+
 			client := openai.NewClient(openAIKey)
 			opts.client = client
 			if len(inv.Args) > 0 {
@@ -225,6 +249,12 @@ func main() {
 				Description: "The OpenAI API key to use.",
 				Env:         "OPENAI_API_KEY",
 				Value:       serpent.StringOf(&openAIKey),
+			},
+			{
+				Name:        "save-key",
+				Description: "Save the OpenAI API key to persistent local configuration and exit.",
+				Flag:        "save-key",
+				Value:       serpent.BoolOf(&doSaveKey),
 			},
 			{
 				Name:          "dry-run",

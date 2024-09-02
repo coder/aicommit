@@ -61,6 +61,14 @@ aicommit -c "improved HTTP performance by 50%"
 aicommit -c "bad code but need for urgent customer fix"
 ```
 
+When tired of setting environment variables, you can save your key to disk:
+
+```bash
+export OPENAI_API_KEY="..."
+aicommit --save-key
+# The environment variable will override the saved key.
+```
+
 ## Style Guide
 
 `aicommit` will read the `COMMITS.md` file in the root of the repository to
