@@ -84,6 +84,8 @@ func findGitRoot(dir string) (string, error) {
 	}
 }
 
+const styleGuideFilename = "COMMITS.md"
+
 // findRepoStyleGuide searches for "COMMITS.md" in the repository root of dir
 // and returns its contents.
 func findRepoStyleGuide(dir string) (string, error) {
@@ -92,13 +94,29 @@ func findRepoStyleGuide(dir string) (string, error) {
 		return "", fmt.Errorf("find git root: %w", err)
 	}
 
-	styleGuide, err := os.ReadFile(filepath.Join(root, "COMMITS.md"))
+	styleGuide, err := os.ReadFile(filepath.Join(root, styleGuideFilename))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return "", nil
 		}
 		return "", fmt.Errorf("read style guide: %w", err)
 	}
+	return string(styleGuide), nil
+}
+
+func findUserStyleGuide() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("find user home dir: %w", err)
+	}
+	styleGuide, err := os.ReadFile(filepath.Join(home, styleGuideFilename))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
+		}
+		return "", fmt.Errorf("read user style guide: %w", err)
+	}
+
 	return string(styleGuide), nil
 }
 
@@ -217,16 +235,27 @@ func BuildPrompt(
 	)
 
 	// Add style guide after commit messages so it takes priority.
-	styleGuide, err := findRepoStyleGuide(dir)
+	repoStyleGuide, err := findRepoStyleGuide(dir)
 	if err != nil {
 		return nil, fmt.Errorf("find style guide: %w", err)
 	}
-	if styleGuide != "" {
+	if repoStyleGuide != "" {
 		resp = append(resp, openai.ChatCompletionMessage{
 			Role: openai.ChatMessageRoleSystem,
 			Content: "This repository has a style guide. Follow it even when " +
-				"it diverges from the norm.\n" + styleGuide,
+				"it diverges from the norm.\n" + repoStyleGuide,
 		})
+	} else {
+		userStyleGuide, err := findUserStyleGuide()
+		if err != nil {
+			return nil, fmt.Errorf("find user style guide: %w", err)
+		}
+		if userStyleGuide != "" {
+			resp = append(resp, openai.ChatCompletionMessage{
+				Role:    openai.ChatMessageRoleSystem,
+				Content: "This user has a preferred style guide:\n" + userStyleGuide,
+			})
+		}
 	}
 
 	resp = append(resp, openai.ChatCompletionMessage{
@@ -266,7 +295,7 @@ func generateDiff(w io.Writer, dir string, refName string, amend bool) error {
 	// Run the git command and return any execution errors
 	err := cmd.Run()
 	if err != nil {
-		return fmt.Errorf("Running %s %s: %w\n%s",
+		return fmt.Errorf("running %s %s: %w\n%s",
 			cmd.Args[0], strings.Join(cmd.Args[1:], " "), err, errBuf.String())
 	}
 

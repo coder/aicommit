@@ -74,3 +74,6 @@ aicommit --save-key
 `aicommit` will read the `COMMITS.md` file in the root of the repository to
 determine the style guide. It is optional, but if it exists, it will be followed
 even if the rules there diverge from the norm.
+
+If there is no repo style guide, `aicommit` will look for a user style guide
+in `~/COMMITS.md`.
