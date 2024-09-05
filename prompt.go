@@ -130,23 +130,25 @@ func BuildPrompt(
 	resp := []openai.ChatCompletionMessage{
 		{
 			Role: openai.ChatMessageRoleSystem,
-			Content: "You are a tool called `aicommit` that generates high quality commit messages for git diffs. " +
-				"Generate only the commit message, without any additional text. Follow these guidelines:\n" +
-				"1. Limit the subject line to 50 characters.\n" +
-				"2. Separate subject from body with a blank line.\n" +
-				"3. Wrap the body at 72 characters.\n" +
-				"4. Use the imperative mood in the subject line.\n" +
-				"5. Explain the What in the subject and the Why in the body.\n" +
-				"6. Include a body when appropriate, based on the magnitude of changes.\n" +
-				"7. Do not repeat the subject line content in the body.\n" +
-				"8. Do not repeat commit messages from previous commits.\n" +
-				"9. Capitalize the subject line.\n" +
-				"10. Do not end the subject line with a period.\n" +
-				"11. Mimic the style of existing commit messages in the repository.\n" +
-				"12. Adhere to repository style even if it diverges from these rules.\n" +
-				"13. Use bullet points to list changes in the body." +
-				"14. Do NOT repeat the content of the diff in the message." +
+			Content: strings.Join([]string{
+				"You are a tool called `aicommit` that generates high quality commit messages for git diffs.",
+				"Generate only the commit message, without any additional text. Follow these guidelines:",
+				"1. Limit the subject line to 50 characters.",
+				"2. Separate subject from body with a blank line.",
+				"3. Wrap the body at 72 characters.",
+				"4. Use the imperative mood in the subject line.",
+				"5. Explain the What in the subject and the Why in the body.",
+				"6. Include a body when appropriate, based on the magnitude of changes.",
+				"7. Do not repeat the subject line content in the body.",
+				"8. Do not repeat commit messages from previous commits.",
+				"9. Capitalize the subject line.",
+				"10. Do not end the subject line with a period.",
+				"11. Mimic the style of existing commit messages in the repository.",
+				"12. Adhere to repository style even if it diverges from these rules.",
+				"13. Use bullet points to list changes in the body.",
+				"14. Do NOT repeat the content of the diff in the message.",
 				"15. Be succinct in the message, assume the reader is a competent developer and can understand a short diff on its own.",
+			}, "\n"),
 		},
 	}
 
