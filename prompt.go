@@ -144,7 +144,9 @@ func BuildPrompt(
 				"10. Do not end the subject line with a period.\n" +
 				"11. Mimic the style of existing commit messages in the repository.\n" +
 				"12. Adhere to repository style even if it diverges from these rules.\n" +
-				"13. Use bullet points to list changes in the body.",
+				"13. Use bullet points to list changes in the body." +
+				"14. Do NOT repeat the content of the diff in the message." +
+				"15. Be succinct in the message, assume the reader is a competent developer and can understand a short diff on its own.",
 		},
 	}
 
