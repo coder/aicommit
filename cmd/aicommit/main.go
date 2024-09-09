@@ -127,7 +127,7 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 	}
 
 	stream, err := opts.client.CreateChatCompletionStream(ctx, openai.ChatCompletionRequest{
-		Model:       openai.GPT4o,
+		Model:       opts.model,
 		Stream:      true,
 		Temperature: 0,
 		// Seed must not be set for the amend-retry workflow.
@@ -194,6 +194,7 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 
 type runOptions struct {
 	client  *openai.Client
+	model   string
 	dryRun  bool
 	amend   bool
 	ref     string
@@ -249,6 +250,15 @@ func main() {
 				Description: "The OpenAI API key to use.",
 				Env:         "OPENAI_API_KEY",
 				Value:       serpent.StringOf(&openAIKey),
+			},
+			{
+				Name:          "model",
+				Description:   "The model to use, e.g. gpt-4o or gpt-4o-mini.",
+				Flag:          "model",
+				FlagShorthand: "m",
+				Default:       "gpt-4o",
+				Env:           "AICOMMIT_MODEL",
+				Value:         serpent.StringOf(&opts.model),
 			},
 			{
 				Name:        "save-key",
