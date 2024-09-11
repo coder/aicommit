@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -136,6 +137,28 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 			IncludeUsage: true,
 		},
 		Messages: msgs,
+		ResponseFormat: &openai.ChatCompletionResponseFormat{
+			Type: openai.ChatCompletionResponseFormatTypeJSONSchema,
+			JSONSchema: &openai.ChatCompletionResponseFormatJSONSchema{
+				Name: "commit_message",
+				Schema: json.RawMessage(`{
+					"type": "object",
+					"properties": {
+						"thought_process": {
+							"type": "string",
+							"description": "A chain of thought explaining the reasoning behind the commit message"
+						},
+						"commit_message": {
+							"type": "string",
+							"description": "The final, concise commit message"
+						}
+					},
+					"additionalProperties": false,
+					"required": ["thought_process", "commit_message"]
+				}`),
+				Strict: true,
+			},
+		},
 	})
 	if err != nil {
 		return err
@@ -167,9 +190,15 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 	}
 	inv.Stdout.Write([]byte("\n"))
 
-	msg = bytes.NewBufferString(cleanAIMessage(msg.String()))
+	var parsedMsg struct {
+		CommitMessage string `json:"commit_message"`
+	}
+	err = json.Unmarshal(msg.Bytes(), &parsedMsg)
+	if err != nil {
+		return err
+	}
 
-	cmd := exec.Command("git", "commit", "-m", msg.String())
+	cmd := exec.Command("git", "commit", "-m", parsedMsg.CommitMessage)
 	if opts.amend {
 		cmd.Args = append(cmd.Args, "--amend")
 	}
@@ -256,9 +285,11 @@ func main() {
 				Description:   "The model to use, e.g. gpt-4o or gpt-4o-mini.",
 				Flag:          "model",
 				FlagShorthand: "m",
-				Default:       "gpt-4o",
-				Env:           "AICOMMIT_MODEL",
-				Value:         serpent.StringOf(&opts.model),
+				// Needed for structured output.
+				// Should update to gpt-4o once gpt-4o-2024-08-06 is the default.
+				Default: "gpt-4o-2024-08-06",
+				Env:     "AICOMMIT_MODEL",
+				Value:   serpent.StringOf(&opts.model),
 			},
 			{
 				Name:        "save-key",
