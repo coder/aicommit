@@ -165,7 +165,7 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 	}
 	defer stream.Close()
 
-	msg := &bytes.Buffer{}
+	jsonMsg := &bytes.Buffer{}
 
 	// Sky blue color
 	color := pretty.FgColor(colorProfile.Color("#2FA8FF"))
@@ -185,7 +185,7 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 			break
 		}
 		c := resp.Choices[0].Delta.Content
-		msg.WriteString(c)
+		jsonMsg.WriteString(c)
 		pretty.Fprintf(inv.Stdout, color, "%s", c)
 	}
 	inv.Stdout.Write([]byte("\n"))
@@ -193,10 +193,12 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 	var parsedMsg struct {
 		CommitMessage string `json:"commit_message"`
 	}
-	err = json.Unmarshal(msg.Bytes(), &parsedMsg)
+	err = json.Unmarshal(jsonMsg.Bytes(), &parsedMsg)
 	if err != nil {
 		return err
 	}
+
+	parsedMsg.CommitMessage = cleanAIMessage(parsedMsg.CommitMessage)
 
 	cmd := exec.Command("git", "commit", "-m", parsedMsg.CommitMessage)
 	if opts.amend {
