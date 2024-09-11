@@ -139,7 +139,7 @@ func BuildPrompt(
 				"4. Use the imperative mood in the subject line.",
 				"5. Explain the What in the subject and the Why in the body.",
 				"6. Include a body when appropriate, based on the magnitude of changes.",
-				"7. Do not repeat the subject line content in the body.",
+				"7. Do not repeat the subject line content in the body. Be succinct.",
 				"8. Do not repeat commit messages from previous commits.",
 				"9. Capitalize the subject line.",
 				"10. Do not end the subject line with a period.",
