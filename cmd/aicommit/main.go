@@ -234,9 +234,9 @@ type runOptions struct {
 
 func main() {
 	var (
-		opts      runOptions
-		openAIKey string
-		doSaveKey bool
+		opts         runOptions
+		cliOpenAIKey string
+		doSaveKey    bool
 	)
 	cmd := &serpent.Command{
 		Use:   "aicommit [ref]",
@@ -246,15 +246,31 @@ func main() {
 			if err != nil && !os.IsNotExist(err) {
 				return err
 			}
-			if savedKey != "" && openAIKey == "" {
+			var openAIKey string
+			if savedKey != "" && cliOpenAIKey == "" {
 				openAIKey = savedKey
+			} else if cliOpenAIKey != "" {
+				openAIKey = cliOpenAIKey
 			}
+
+			if savedKey != "" && cliOpenAIKey != "" {
+				openAIKeyOpt := inv.Command.Options.ByName("openai-key")
+				if openAIKeyOpt == nil {
+					panic("openai-key option not found")
+				}
+				// savedKey overrides cliOpenAIKey only when set via environment.
+				// See https://github.com/coder/aicommit/issues/6.
+				if openAIKeyOpt.ValueSource == serpent.ValueSourceEnv {
+					openAIKey = savedKey
+				}
+			}
+
 			if openAIKey == "" {
 				return errors.New("$OPENAI_API_KEY is not set")
 			}
 
 			if doSaveKey {
-				err := saveKey(openAIKey)
+				err := saveKey(cliOpenAIKey)
 				if err != nil {
 					return err
 				}
@@ -280,7 +296,8 @@ func main() {
 				Name:        "openai-key",
 				Description: "The OpenAI API key to use.",
 				Env:         "OPENAI_API_KEY",
-				Value:       serpent.StringOf(&openAIKey),
+				Flag:        "openai-key",
+				Value:       serpent.StringOf(&cliOpenAIKey),
 			},
 			{
 				Name:          "model",
