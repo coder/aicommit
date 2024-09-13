@@ -151,7 +151,12 @@ func BuildPrompt(
 		},
 	}
 
-	repo, err := git.PlainOpen(dir)
+	gitRoot, err := findGitRoot(dir)
+	if err != nil {
+		return nil, fmt.Errorf("find git root: %w", err)
+	}
+
+	repo, err := git.PlainOpen(gitRoot)
 	if err != nil {
 		return nil, fmt.Errorf("open repo %q: %w", dir, err)
 	}
