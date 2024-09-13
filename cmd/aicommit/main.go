@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -137,35 +136,13 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 			IncludeUsage: true,
 		},
 		Messages: msgs,
-		ResponseFormat: &openai.ChatCompletionResponseFormat{
-			Type: openai.ChatCompletionResponseFormatTypeJSONSchema,
-			JSONSchema: &openai.ChatCompletionResponseFormatJSONSchema{
-				Name: "commit_message",
-				Schema: json.RawMessage(`{
-					"type": "object",
-					"properties": {
-						"thought_process": {
-							"type": "string",
-							"description": "A chain of thought explaining the reasoning behind the commit message"
-						},
-						"commit_message": {
-							"type": "string",
-							"description": "The final, concise commit message"
-						}
-					},
-					"additionalProperties": false,
-					"required": ["thought_process", "commit_message"]
-				}`),
-				Strict: true,
-			},
-		},
 	})
 	if err != nil {
 		return err
 	}
 	defer stream.Close()
 
-	jsonMsg := &bytes.Buffer{}
+	msg := &bytes.Buffer{}
 
 	// Sky blue color
 	color := pretty.FgColor(colorProfile.Color("#2FA8FF"))
@@ -185,22 +162,14 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 			break
 		}
 		c := resp.Choices[0].Delta.Content
-		jsonMsg.WriteString(c)
+		msg.WriteString(c)
 		pretty.Fprintf(inv.Stdout, color, "%s", c)
 	}
 	inv.Stdout.Write([]byte("\n"))
 
-	var parsedMsg struct {
-		CommitMessage string `json:"commit_message"`
-	}
-	err = json.Unmarshal(jsonMsg.Bytes(), &parsedMsg)
-	if err != nil {
-		return err
-	}
+	msg = bytes.NewBufferString(cleanAIMessage(msg.String()))
 
-	parsedMsg.CommitMessage = cleanAIMessage(parsedMsg.CommitMessage)
-
-	cmd := exec.Command("git", "commit", "-m", parsedMsg.CommitMessage)
+	cmd := exec.Command("git", "commit", "-m", msg.String())
 	if opts.amend {
 		cmd.Args = append(cmd.Args, "--amend")
 	}
@@ -304,11 +273,9 @@ func main() {
 				Description:   "The model to use, e.g. gpt-4o or gpt-4o-mini.",
 				Flag:          "model",
 				FlagShorthand: "m",
-				// Needed for structured output.
-				// Should update to gpt-4o once gpt-4o-2024-08-06 is the default.
-				Default: "gpt-4o-2024-08-06",
-				Env:     "AICOMMIT_MODEL",
-				Value:   serpent.StringOf(&opts.model),
+				Default:       "gpt-4o-2024-08-06",
+				Env:           "AICOMMIT_MODEL",
+				Value:         serpent.StringOf(&opts.model),
 			},
 			{
 				Name:        "save-key",

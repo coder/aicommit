@@ -132,7 +132,7 @@ func BuildPrompt(
 			Role: openai.ChatMessageRoleSystem,
 			Content: strings.Join([]string{
 				"You are a tool called `aicommit` that generates high quality commit messages for git diffs.",
-				"Follow these guidelines strictly:",
+				"Generate only the commit message, without any additional text. Follow these guidelines:",
 				"1. Limit the subject line to 50 characters.",
 				"2. Use the imperative mood in the subject line.",
 				"3. Capitalize the subject line and don't end it with a period.",
