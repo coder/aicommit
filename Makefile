@@ -6,6 +6,7 @@ SHELL := /bin/bash
 build:
 	set -e
 	mkdir -p bin
+	# version may be passed in via homebrew formula
 	if [ -z "$$VERSION" ]; then \
 		VERSION=$$(git describe --tags --always --dirty || echo "dev"); \
 	fi
