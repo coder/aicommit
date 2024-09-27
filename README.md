@@ -17,6 +17,13 @@ this detail.
 
 ## Install
 
+Via Homebrew:
+```
+brew install aicommit
+```
+
+Or, using Go:
+
 ```
 go install github.com/coder/aicommit/cmd/aicommit@main
 ```
