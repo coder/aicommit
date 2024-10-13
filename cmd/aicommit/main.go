@@ -193,12 +193,13 @@ func run(inv *serpent.Invocation, opts runOptions) error {
 }
 
 type runOptions struct {
-	client  *openai.Client
-	model   string
-	dryRun  bool
-	amend   bool
-	ref     string
-	context []string
+	client        *openai.Client
+	openAIBaseURL string
+	model         string
+	dryRun        bool
+	amend         bool
+	ref           string
+	context       []string
 }
 
 func main() {
@@ -253,7 +254,9 @@ func main() {
 				return nil
 			}
 
-			client := openai.NewClient(openAIKey)
+			oaiConfig := openai.DefaultConfig(openAIKey)
+			oaiConfig.BaseURL = opts.openAIBaseURL
+			client := openai.NewClientWithConfig(oaiConfig)
 			opts.client = client
 			if len(inv.Args) > 0 {
 				opts.ref = inv.Args[0]
@@ -267,6 +270,14 @@ func main() {
 				Env:         "OPENAI_API_KEY",
 				Flag:        "openai-key",
 				Value:       serpent.StringOf(&cliOpenAIKey),
+			},
+			{
+				Name:        "openai-base-url",
+				Description: "The base URL to use for the OpenAI API.",
+				Env:         "OPENAI_BASE_URL",
+				Flag:        "openai-base-url",
+				Value:       serpent.StringOf(&opts.openAIBaseURL),
+				Default:     "https://api.openai.com/v1",
 			},
 			{
 				Name:          "model",

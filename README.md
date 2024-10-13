@@ -84,3 +84,13 @@ even if the rules there diverge from the norm.
 
 If there is no repo style guide, `aicommit` will look for a user style guide
 in `~/COMMITS.md`.
+
+## Other Providers
+
+You may set `OPENAI_BASE_URL` to use other OpenAI compatible APIs with `aicommit`.
+So far, I've tested it with [LiteLLM](https://github.com/BerriAI/litellm) across
+local models (via ollama) and Anthropic. I have yet to find a local model
+that is well-steered by the prompt design here, but the Anthropic Claude 3.5
+commit messages are on par with 4o. My theory for why local models don't work well
+is (even the "Instruct" fine-tuned models) have much worse instruction
+fine-tuning than the flagship commercial models.
