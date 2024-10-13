@@ -92,5 +92,5 @@ So far, I've tested it with [LiteLLM](https://github.com/BerriAI/litellm) across
 local models (via ollama) and Anthropic. I have yet to find a local model
 that is well-steered by the prompt design here, but the Anthropic Claude 3.5
 commit messages are on par with 4o. My theory for why local models don't work well
-is (even the "Instruct" fine-tuned models) have much worse instruction
-fine-tuning than the flagship commercial models.
+is they (incl. "Instruct" models) have much worse instruction fine-tuning
+than flagship commercial models.
