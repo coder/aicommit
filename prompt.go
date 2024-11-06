@@ -85,6 +85,22 @@ func findGitRoot(dir string) (string, error) {
 }
 
 const styleGuideFilename = "COMMITS.md"
+const defaultUserStyleGuide = `
+1. Limit the subject line to 50 characters.
+2. Use the imperative mood in the subject line.
+3. Capitalize the subject line such as "Fix Issue 886" and don't end it with a period.
+4. The subject line should summarize the main change concisely.
+5. Only include a body if absolutely necessary for complex changes.
+6. If a body is needed, separate it from the subject with a blank line.
+7. Wrap the body at 72 characters.
+8. In the body, explain the why, not the what (the diff shows the what).
+9. Use bullet points in the body only for truly distinct changes.
+10. Be extremely concise. Assume the reader can understand the diff.
+11. Never repeat information between the subject and body.
+12. Do not repeat commit messages from previous commits.
+13. Prioritize clarity and brevity over completeness.
+14. Adhere to the repository's commit style if it exists.
+`
 
 // findRepoStyleGuide searches for "COMMITS.md" in the repository root of dir
 // and returns its contents.
@@ -101,7 +117,7 @@ func findRepoStyleGuide(dir string) (string, error) {
 		}
 		return "", fmt.Errorf("read style guide: %w", err)
 	}
-	return string(styleGuide), nil
+	return strings.TrimSpace(string(styleGuide)), nil
 }
 
 func findUserStyleGuide() (string, error) {
@@ -116,8 +132,7 @@ func findUserStyleGuide() (string, error) {
 		}
 		return "", fmt.Errorf("read user style guide: %w", err)
 	}
-
-	return string(styleGuide), nil
+	return strings.TrimSpace(string(styleGuide)), nil
 }
 
 func BuildPrompt(
@@ -132,21 +147,7 @@ func BuildPrompt(
 			Role: openai.ChatMessageRoleSystem,
 			Content: strings.Join([]string{
 				"You are a tool called `aicommit` that generates high quality commit messages for git diffs.",
-				"Generate only the commit message, without any additional text. Follow these guidelines:",
-				"1. Limit the subject line to 50 characters.",
-				"2. Use the imperative mood in the subject line.",
-				"3. Capitalize the subject line and don't end it with a period.",
-				"4. The subject line should summarize the main change concisely.",
-				"5. Only include a body if absolutely necessary for complex changes.",
-				"6. If a body is needed, separate it from the subject with a blank line.",
-				"7. Wrap the body at 72 characters.",
-				"8. In the body, explain the why, not the what (the diff shows the what).",
-				"9. Use bullet points in the body only for truly distinct changes.",
-				"10. Be extremely concise. Assume the reader can understand the diff.",
-				"11. Never repeat information between the subject and body.",
-				"12. Do not repeat commit messages from previous commits.",
-				"13. Prioritize clarity and brevity over completeness.",
-				"14. Adhere to the repository's commit style if it exists.",
+				"Generate only the commit message, without any additional text.",
 			}, "\n"),
 		},
 	}
@@ -258,12 +259,13 @@ func BuildPrompt(
 		if err != nil {
 			return nil, fmt.Errorf("find user style guide: %w", err)
 		}
-		if userStyleGuide != "" {
-			resp = append(resp, openai.ChatCompletionMessage{
-				Role:    openai.ChatMessageRoleSystem,
-				Content: "This user has a preferred style guide:\n" + userStyleGuide,
-			})
+		if userStyleGuide == "" {
+			userStyleGuide = defaultUserStyleGuide
 		}
+		resp = append(resp, openai.ChatCompletionMessage{
+			Role:    openai.ChatMessageRoleSystem,
+			Content: "This user has a preferred style guide:\n" + userStyleGuide,
+		})
 	}
 
 	resp = append(resp, openai.ChatCompletionMessage{
