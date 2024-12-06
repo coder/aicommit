@@ -294,7 +294,7 @@ func BuildLintPrompt(log io.Writer, dir, commitMessage string) ([]openai.ChatCom
 			Content: strings.Join([]string{
 				"Here are report printing rules:",
 				"* every linting rule is included in the report in a separate line",
-				"* every line is prefixed with OK if the linting rule is satisfied, otherwise X is prepended",
+				"* every line is prefixed with ✅ if the linting rule is satisfied, otherwise ❌ is prepended",
 				"* linting rules can't be skipped",
 				"* linting rules are plain text, not wrapped in code tags",
 				"* suggestion is a corrected commit message, written plain text, not wrapped in code tags",
@@ -305,9 +305,9 @@ func BuildLintPrompt(log io.Writer, dir, commitMessage string) ([]openai.ChatCom
 			Role: openai.ChatMessageRoleSystem,
 			Content: strings.Join([]string{
 				"Here is a sample of negative linting report:",
-				"X This is rule 1.",
-				"OK This is rule 2.",
-				"OK This is rule 3.",
+				"❌ This is rule 1.",
+				"✅ This is rule 2.",
+				"✅ This is rule 3.",
 				"",
 				"suggestion: chore: write better commit message",
 			}, "\n"),
