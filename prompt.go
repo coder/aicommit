@@ -276,6 +276,82 @@ func BuildPrompt(
 	return resp, nil
 }
 
+func BuildLintPrompt(log io.Writer, dir, commitMessage string) ([]openai.ChatCompletionMessage, error) {
+	resp := []openai.ChatCompletionMessage{
+		// Describe the role
+		{
+			Role: openai.ChatMessageRoleSystem,
+			Content: strings.Join([]string{
+				"You are a tool called `aicommit` that lints commit messages according to the linting rules, and generate a linting report.",
+				"For the given commit message, lint it following to the style guide rules, and output a report following the printing rules.",
+				"Only if the report is negative, include a suggestion of valid, corrected commit message.",
+				"Only generate the report, do not include any additional text.",
+			}, "\n"),
+		},
+		// Describe printing rules
+		{
+			Role: openai.ChatMessageRoleSystem,
+			Content: strings.Join([]string{
+				"Here are report printing rules:",
+				"* every linting rule is included in the report in a separate line",
+				"* every line is prefixed with OK if the linting rule is satisfied, otherwise X is prepended",
+				"* linting rules can't be skipped",
+				"* linting rules are plain text, not wrapped in code tags",
+				"* suggestion is a corrected commit message, written plain text, not wrapped in code tags",
+			}, "\n"),
+		},
+		// Provide a sample report
+		{
+			Role: openai.ChatMessageRoleSystem,
+			Content: strings.Join([]string{
+				"Here is a sample of negative linting report:",
+				"X This is rule 1.",
+				"OK This is rule 2.",
+				"OK This is rule 3.",
+				"",
+				"suggestion: chore: write better commit message",
+			}, "\n"),
+		},
+	}
+
+	// Describe style guide rules
+	styleGuide, err := readStyleGuide(dir)
+	if err != nil {
+		return nil, err
+	}
+	resp = append(resp, openai.ChatCompletionMessage{
+		Role: openai.ChatMessageRoleSystem,
+		Content: strings.Join([]string{
+			"Here are the linting rules specified in the repository style guide:",
+			styleGuide,
+		}, "\n"),
+	})
+
+	// Provide commit message to lint
+	resp = append(resp, openai.ChatCompletionMessage{
+		Role:    openai.ChatMessageRoleSystem,
+		Content: "Here is the commit message to lint:\n" + commitMessage,
+	})
+	return resp, nil
+}
+
+func readStyleGuide(dir string) (string, error) {
+	styleGuide, err := findRepoStyleGuide(dir)
+	if err != nil {
+		return "", fmt.Errorf("find repository style guide: %w", err)
+	} else if styleGuide != "" {
+		return styleGuide, nil
+	}
+
+	styleGuide, err = findUserStyleGuide()
+	if err != nil {
+		return "", fmt.Errorf("find user style guide: %w", err)
+	} else if styleGuide != "" {
+		return styleGuide, nil
+	}
+	return defaultUserStyleGuide, nil
+}
+
 // generateDiff uses the git CLI to generate a diff for the given reference.
 // If refName is empty, it will generate a diff of staged changes for the working directory.
 func generateDiff(w io.Writer, dir string, refName string, amend bool) error {
