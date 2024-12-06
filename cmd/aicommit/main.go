@@ -199,6 +199,7 @@ type runOptions struct {
 	dryRun        bool
 	amend         bool
 	ref           string
+	lint          string
 	context       []string
 }
 
@@ -261,6 +262,11 @@ func main() {
 			if len(inv.Args) > 0 {
 				opts.ref = inv.Args[0]
 			}
+
+			if opts.lint != "" {
+				return lint(inv, opts)
+			}
+
 			return run(inv, opts)
 		},
 		Options: []serpent.Option{
@@ -307,6 +313,12 @@ func main() {
 				FlagShorthand: "a",
 				Description:   "Amend the last commit.",
 				Value:         serpent.BoolOf(&opts.amend),
+			},
+			{
+				Name:        "lint",
+				Description: "Lint the commit message.",
+				Flag:        "lint",
+				Value:       serpent.StringOf(&opts.lint),
 			},
 			{
 				Name:          "context",
