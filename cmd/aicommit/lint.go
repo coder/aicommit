@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/coder/aicommit"
 	"github.com/coder/serpent"
@@ -56,6 +58,8 @@ func lint(inv *serpent.Invocation, opts runOptions) error {
 	}
 	defer stream.Close()
 
+	var validationFailed bool
+
 	for {
 		resp, err := stream.Recv()
 		if err != nil {
@@ -67,7 +71,12 @@ func lint(inv *serpent.Invocation, opts runOptions) error {
 		}
 
 		if len(resp.Choices) > 0 {
-			inv.Stdout.Write([]byte(resp.Choices[0].Delta.Content))
+			c := resp.Choices[0].Delta.Content
+			inv.Stdout.Write([]byte(c))
+
+			if strings.HasPrefix(c, "❌") {
+				validationFailed = true
+			}
 		} else {
 			inv.Stdout.Write([]byte("\n"))
 		}
@@ -76,6 +85,10 @@ func lint(inv *serpent.Invocation, opts runOptions) error {
 		if resp.Usage != nil {
 			debugf("total tokens: %d", resp.Usage.TotalTokens)
 		}
+	}
+
+	if validationFailed {
+		return fmt.Errorf("validation failed")
 	}
 	return nil
 }
