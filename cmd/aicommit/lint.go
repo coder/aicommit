@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -63,7 +64,7 @@ func lint(inv *serpent.Invocation, opts runOptions) error {
 	for {
 		resp, err := stream.Recv()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				debugf("stream EOF")
 				break
 			}
@@ -88,7 +89,7 @@ func lint(inv *serpent.Invocation, opts runOptions) error {
 	}
 
 	if validationFailed {
-		return fmt.Errorf("validation failed")
+		return fmt.Fprint(inv.Stderr, "validation failed\n")
 	}
 	return nil
 }
