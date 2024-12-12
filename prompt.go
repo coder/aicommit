@@ -312,7 +312,7 @@ func BuildLintPrompt(log io.Writer, dir, commitMessage string) ([]openai.ChatCom
 				"❌ This is rule 1.",
 				"✅ This is rule 2.",
 				"✅ This is rule 3.",
-				"🤫 This is rule 3.",
+				"🤫 This is rule 4.",
 				"",
 				"suggestion: chore: write better commit message",
 			}, "\n"),
