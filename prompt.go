@@ -282,22 +282,26 @@ func BuildLintPrompt(log io.Writer, dir, commitMessage string) ([]openai.ChatCom
 		{
 			Role: openai.ChatMessageRoleSystem,
 			Content: strings.Join([]string{
-				"You are a tool called `aicommit` that lints commit messages according to the linting rules, and generate a linting report.",
-				"For the given commit message, lint it following to the style guide rules, and output a report following the printing rules.",
-				"Only if the report is negative, include a suggestion of valid, corrected commit message.",
-				"Only generate the report, do not include any additional text.",
+				"You are `aicommit`, a tool designed to lint commit messages and generate a detailed linting report.",
+				"You are operating in pull request (PR) title linting mode.",
+				"In this mode, linting rules for commit subjects, bodies, or bullet points are not applicable.",
+				"You do not have access to repository history or code changes and must only evaluate the given PR title.",
+				"Follow the provided linting rules strictly without making assumptions beyond the explicit rules.",
+				"Generate a report based on the style guide rules and output it according to the specified format.",
+				"If the report violates rules, include a single suggestion for a corrected PR title, otherwise skip suggestion.",
+				"Only generate the report and suggestion; do not add any additional text or context.",
 			}, "\n"),
 		},
 		// Describe printing rules
 		{
 			Role: openai.ChatMessageRoleSystem,
 			Content: strings.Join([]string{
-				"Here are report printing rules:",
-				"* every linting rule is included in the report in a separate line",
-				"* every line is prefixed with ✅ if the linting rule is satisfied, otherwise ❌ is prepended",
-				"* linting rules can't be skipped",
-				"* linting rules are plain text, not wrapped in code tags",
-				"* suggestion is a corrected commit message, written plain text, not wrapped in code tags",
+				"Report printing rules:",
+				"* Each linting rule must appear on a separate line in the report.",
+				"* Prefix lines with: ✅ for satisfied rules, ❌ for violated rules, or 🤫 for non-applicable rules.",
+				"* Non-applicable rules are those irrelevant to PR titles.",
+				"* Do not skip any linting rules in the report.",
+				"* The suggestion must be a plain text corrected PR title, prefixed with 'suggestion:', and not wrapped in code tags.",
 			}, "\n"),
 		},
 		// Provide a sample report
@@ -308,6 +312,7 @@ func BuildLintPrompt(log io.Writer, dir, commitMessage string) ([]openai.ChatCom
 				"❌ This is rule 1.",
 				"✅ This is rule 2.",
 				"✅ This is rule 3.",
+				"🤫 This is rule 3.",
 				"",
 				"suggestion: chore: write better commit message",
 			}, "\n"),
@@ -322,7 +327,9 @@ func BuildLintPrompt(log io.Writer, dir, commitMessage string) ([]openai.ChatCom
 	resp = append(resp, openai.ChatCompletionMessage{
 		Role: openai.ChatMessageRoleSystem,
 		Content: strings.Join([]string{
-			"Here are the linting rules specified in the repository style guide:",
+			"Linting rules apply when generating commit tiles based on changes and repository history, but right now you are operating as a pull request title linter",
+			"and don't have access to that information. Don't make assumptions outside of what is explicitly stated in the rules.",
+			"Here are the linting rules specified in the repository style guide.",
 			styleGuide,
 		}, "\n"),
 	})

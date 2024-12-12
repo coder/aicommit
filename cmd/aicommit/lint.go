@@ -89,7 +89,7 @@ func lint(inv *serpent.Invocation, opts runOptions) error {
 	}
 
 	if validationFailed {
-		return fmt.Fprint(inv.Stderr, "validation failed\n")
+		return fmt.Errorf("validation failed")
 	}
 	return nil
 }
