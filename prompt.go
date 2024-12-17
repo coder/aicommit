@@ -282,39 +282,33 @@ func BuildLintPrompt(log io.Writer, dir, commitMessage string) ([]openai.ChatCom
 		{
 			Role: openai.ChatMessageRoleSystem,
 			Content: strings.Join([]string{
-				"You are `aicommit`, a tool designed to lint commit messages and generate a detailed linting report.",
-				"You are operating in pull request (PR) title linting mode.",
-				"In this mode, linting rules for commit subjects, bodies, or bullet points are not applicable.",
-				"You do not have access to repository history or code changes and must only evaluate the given PR title.",
-				"Follow the provided linting rules strictly without making assumptions beyond the explicit rules.",
-				"Generate a report based on the style guide rules and output it according to the specified format.",
-				"If the report violates rules, include a single suggestion for a corrected PR title, otherwise skip suggestion.",
-				"Only generate the report and suggestion; do not add any additional text or context.",
+				"You are `aicommit`, a commit title linting tool.",
+				"You are currently operating in PR title linting mode with access to repository history to ensure consistency.",
+				"Rules to follow:",
+				"1. Apply the repository's style guide strictly. Do not assume beyond the explicit rules provided.",
+				"2. Generate a linting report formatted as follows:",
+				"  * Prefix each line:",
+				"    * ✅ for passed rules",
+				"    * ❌ for violated rules",
+				"    * 🤫 for non-applicable rules, appending (non-applicable).",
+				"  * Include all rules in the report. Do not skip any.",
+				"3. If violations occur, suggest a single corrected PR title prefixed with `suggestion`: (plain text, no code formatting). If no violations exist, skip the suggestion.",
+				"4. Only output the report and suggestion. Avoid any additional text or explanations for the suggestion.",
 			}, "\n"),
 		},
-		// Describe printing rules
+		// Output example
 		{
 			Role: openai.ChatMessageRoleSystem,
 			Content: strings.Join([]string{
-				"Report printing rules:",
-				"* Each linting rule must appear on a separate line in the report.",
-				"* Prefix lines with: ✅ for satisfied rules, ❌ for violated rules, or 🤫 for non-applicable rules.",
-				"* Non-applicable rules are those irrelevant to PR titles.",
-				"* Do not skip any linting rules in the report.",
-				"* The suggestion must be a plain text corrected PR title, prefixed with 'suggestion:', and not wrapped in code tags.",
-			}, "\n"),
-		},
-		// Provide a sample report
-		{
-			Role: openai.ChatMessageRoleSystem,
-			Content: strings.Join([]string{
-				"Here is a sample of negative linting report:",
-				"❌ This is rule 1.",
-				"✅ This is rule 2.",
-				"✅ This is rule 3.",
-				"🤫 This is rule 4.",
+				"Output Example:",
 				"",
-				"suggestion: chore: write better commit message",
+				"Negative Report",
+				"❌ Rule 1: Limit the subject line to 50 characters.",
+				"✅ Rule 2: Use the imperative mood.",
+				"✅ Rule 3: Capitalize subject and omit period.",
+				"🤫 Rule 5: Include a body only if necessary. (non-applicable)",
+				"",
+				"suggestion: fix: reduce false positives in GetWorkspacesEligibleForTransition",
 			}, "\n"),
 		},
 	}
@@ -327,17 +321,18 @@ func BuildLintPrompt(log io.Writer, dir, commitMessage string) ([]openai.ChatCom
 	resp = append(resp, openai.ChatCompletionMessage{
 		Role: openai.ChatMessageRoleSystem,
 		Content: strings.Join([]string{
-			"Linting rules apply when generating commit tiles based on changes and repository history, but right now you are operating as a pull request title linter",
-			"and don't have access to that information. Don't make assumptions outside of what is explicitly stated in the rules.",
-			"Here are the linting rules specified in the repository style guide.",
+			"Style Guide Rules:",
 			styleGuide,
 		}, "\n"),
 	})
 
+	// Previous commit messages
+	// TODO
+
 	// Provide commit message to lint
 	resp = append(resp, openai.ChatCompletionMessage{
 		Role:    openai.ChatMessageRoleSystem,
-		Content: "Here is the commit message to lint:\n" + commitMessage,
+		Content: "Commit Message to Lint:\n" + commitMessage,
 	})
 	return resp, nil
 }
