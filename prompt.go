@@ -152,16 +152,6 @@ func BuildPrompt(
 		},
 	}
 
-	gitRoot, err := findGitRoot(dir)
-	if err != nil {
-		return nil, fmt.Errorf("find git root: %w", err)
-	}
-
-	repo, err := git.PlainOpen(gitRoot)
-	if err != nil {
-		return nil, fmt.Errorf("open repo %q: %w", dir, err)
-	}
-
 	var buf bytes.Buffer
 	// Get the working directory diff
 	if err := generateDiff(&buf, dir, commitHash, amend); err != nil {
@@ -182,10 +172,11 @@ func BuildPrompt(
 
 	targetDiffString := buf.String()
 
-	// Get the HEAD reference
-	head, err := repo.Head()
+	commitMsgs, err := commitMessages(dir, commitHash)
 	if err != nil {
-		// No commits yet
+		return nil, fmt.Errorf("can't read commit messages: %w", err)
+	}
+	if len(commitMsgs) == 0 {
 		fmt.Fprintln(log, "no commits yet")
 		resp = append(resp, openai.ChatCompletionMessage{
 			Role:    openai.ChatMessageRoleUser,
@@ -194,46 +185,6 @@ func BuildPrompt(
 		return resp, nil
 	}
 
-	// Create a log options struct
-	logOptions := &git.LogOptions{
-		From:  head.Hash(),
-		Order: git.LogOrderCommitterTime,
-	}
-
-	// Get the commit iterator
-	commitIter, err := repo.Log(logOptions)
-	if err != nil {
-		return nil, fmt.Errorf("get commit iterator: %w", err)
-	}
-	defer commitIter.Close()
-
-	// Collect the last N commits
-	var commits []*object.Commit
-	for i := 0; i < 300; i++ {
-		commit, err := commitIter.Next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return nil, fmt.Errorf("iterate commits: %w", err)
-		}
-		// Ignore if commit equals ref, because we are trying to recalculate
-		// that particular commit's message.
-		if commit.Hash.String() == commitHash {
-			continue
-		}
-		commits = append(commits, commit)
-
-	}
-
-	// We want to reverse the commits so that the most recent commit is the
-	// last or "most recent" in the chat.
-	reverseSlice(commits)
-
-	var commitMsgs []string
-	for _, commit := range commits {
-		commitMsgs = append(commitMsgs, Ellipse(commit.Message, 1000))
-	}
 	// We provide the commit messages in case the actual commit diffs are cut
 	// off due to token limits.
 	resp = append(resp, openai.ChatCompletionMessage{
@@ -274,6 +225,159 @@ func BuildPrompt(
 	})
 
 	return resp, nil
+}
+
+func BuildLintPrompt(log io.Writer, dir, commitMessage string) ([]openai.ChatCompletionMessage, error) {
+	resp := []openai.ChatCompletionMessage{
+		// Describe the role
+		{
+			Role: openai.ChatMessageRoleSystem,
+			Content: strings.Join([]string{
+				"You are `aicommit`, a commit title linting tool.",
+				"You are currently operating in PR title linting mode with access to repository history to ensure consistency.",
+				"Rules to follow:",
+				"1. Apply the repository's style guide strictly. Do not assume beyond the explicit rules provided.",
+				"2. Generate a linting report formatted as follows:",
+				"  * Prefix each line:",
+				"    * ✅ for passed rules",
+				"    * ❌ for violated rules",
+				"    * 🤫 for non-applicable rules, appending (non-applicable).",
+				"  * Include all rules in the report. Do not skip any.",
+				"3. If violations occur, suggest a single corrected PR title prefixed with `suggestion`: (plain text, no code formatting). If no violations exist, skip the suggestion.",
+				"4. Only output the report and suggestion. Avoid any additional text or explanations for the suggestion.",
+			}, "\n"),
+		},
+		// Output example
+		{
+			Role: openai.ChatMessageRoleSystem,
+			Content: strings.Join([]string{
+				"Output Example:",
+				"",
+				"Negative Report",
+				"❌ Rule 1: Limit the subject line to 50 characters.",
+				"✅ Rule 2: Use the imperative mood.",
+				"✅ Rule 3: Capitalize subject and omit period.",
+				"🤫 Rule 5: Include a body only if necessary. (non-applicable)",
+				"",
+				"suggestion: fix: reduce false positives in GetWorkspacesEligibleForTransition",
+			}, "\n"),
+		},
+	}
+
+	// Describe style guide rules
+	styleGuide, err := readStyleGuide(dir)
+	if err != nil {
+		return nil, err
+	}
+	resp = append(resp, openai.ChatCompletionMessage{
+		Role: openai.ChatMessageRoleSystem,
+		Content: strings.Join([]string{
+			"Style Guide Rules:",
+			styleGuide,
+		}, "\n"),
+	})
+
+	// Previous commit messages
+	commitMsgs, err := commitMessages(dir, "")
+	if err != nil {
+		return nil, fmt.Errorf("can't read commit messages: %w", err)
+	}
+	if len(commitMsgs) == 0 {
+		resp = append(resp, openai.ChatCompletionMessage{
+			Role:    openai.ChatMessageRoleUser,
+			Content: "No commits in the repository yet.",
+		})
+	} else {
+		resp = append(resp, openai.ChatCompletionMessage{
+			Role: openai.ChatMessageRoleSystem,
+			Content: "Here are recent commit messages in the same repository:\n" +
+				mustJSON(commitMsgs),
+		},
+		)
+	}
+
+	// Provide commit message to lint
+	resp = append(resp, openai.ChatCompletionMessage{
+		Role:    openai.ChatMessageRoleSystem,
+		Content: "Commit Message to Lint:\n" + commitMessage,
+	})
+	return resp, nil
+}
+
+func readStyleGuide(dir string) (string, error) {
+	styleGuide, err := findRepoStyleGuide(dir)
+	if err != nil {
+		return "", fmt.Errorf("find repository style guide: %w", err)
+	} else if styleGuide != "" {
+		return styleGuide, nil
+	}
+
+	styleGuide, err = findUserStyleGuide()
+	if err != nil {
+		return "", fmt.Errorf("find user style guide: %w", err)
+	} else if styleGuide != "" {
+		return styleGuide, nil
+	}
+	return defaultUserStyleGuide, nil
+}
+
+func commitMessages(dir string, commitHash string) ([]string, error) {
+	gitRoot, err := findGitRoot(dir)
+	if err != nil {
+		return nil, fmt.Errorf("find Git root: %w", err)
+	}
+
+	repo, err := git.PlainOpen(gitRoot)
+	if err != nil {
+		return nil, fmt.Errorf("open repository %q: %w", dir, err)
+	}
+
+	// Get the HEAD reference
+	head, err := repo.Head()
+	if err != nil {
+		return nil, nil // no commits yet
+	}
+
+	// Create a log options struct
+	logOptions := &git.LogOptions{
+		From:  head.Hash(),
+		Order: git.LogOrderCommitterTime,
+	}
+
+	// Get the commit iterator
+	commitIter, err := repo.Log(logOptions)
+	if err != nil {
+		return nil, fmt.Errorf("get commit iterator: %w", err)
+	}
+	defer commitIter.Close()
+
+	// Collect the last N commits
+	var commits []*object.Commit
+	for i := 0; i < 300; i++ {
+		commit, err := commitIter.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("iterate commits: %w", err)
+		}
+		// Ignore if commit equals ref, because we are trying to recalculate
+		// that particular commit's message.
+		if commitHash != "" && commit.Hash.String() == commitHash {
+			continue
+		}
+		commits = append(commits, commit)
+	}
+
+	// We want to reverse the commits so that the most recent commit is the
+	// last or "most recent" in the chat.
+	reverseSlice(commits)
+
+	var msgs []string
+	for _, commit := range commits {
+		msgs = append(msgs, Ellipse(commit.Message, 1000))
+	}
+	return msgs, nil
 }
 
 // generateDiff uses the git CLI to generate a diff for the given reference.
